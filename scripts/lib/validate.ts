@@ -3,17 +3,20 @@
  * src/assets/spec.ts. AI-generated images are rarely aligned exactly, so this verifies
  * dimensions, transparency and where the opaque pixels actually sit relative to the footprint.
  */
-import { ASSET_MANIFEST, groundKey, manifestByFile, manifestByKey, type AssetEntry } from '../../src/assets/manifest';
+import { BUILDING_ORDER } from '../../src/core/buildings';
+import type { BuildingType, Rotation } from '../../src/core/types';
+import { ASSET_MANIFEST, buildingKey, GROUND_SUFFIX, groundKey, manifestByFile, manifestByKey, type AssetEntry } from '../../src/assets/manifest';
 
 /** Largest allowed overhang of artwork beyond the logical footprint, in tiles per side. */
 export const MAX_OVERHANG = 2;
 import { activeEffects, applyMeta, type ArtMeta, type ArtMetaEntry } from '../../src/assets/meta';
 import { logicalBounds } from '../../src/assets/geometry';
-import { explainUnknownFile, matchArtFiles } from '../../src/assets/resolve';
+import { explainUnknownFile, matchArtFiles, resolveBuildingSprite } from '../../src/assets/resolve';
 import { diamondCorners, GROUND_TOLERANCE, overhangs, PAD } from '../../src/assets/spec';
 import { decodePng, readImageInfo, type RgbaImage } from './image';
 
-export type Severity = 'error' | 'warning';
+/** 'info' = expected, temporary state worth knowing about (e.g. mirrored rotation fallbacks). */
+export type Severity = 'error' | 'warning' | 'info';
 
 export interface Issue {
   severity: Severity;
@@ -32,6 +35,16 @@ export interface ValidationReport {
   matched: string[];
   missingRequired: string[];
   missingOptional: string[];
+  /** Rotations currently drawn from another rotation's image (temporary until all 4 exist). */
+  fallbacks: RotationFallback[];
+}
+
+export interface RotationFallback {
+  type: BuildingType;
+  rotation: Rotation;
+  /** File actually drawn, and whether it is mirrored. */
+  from: string;
+  mirrored: boolean;
 }
 
 const OPAQUE = 16; // alpha above this counts as visible paint
@@ -65,12 +78,65 @@ export function validateArt(files: ArtFile[], opts: { strict?: boolean; meta?: A
     for (const f of candidates) checkFile(effective, f, add, entry.file in meta, companion);
   }
   checkMeta(meta, found, add);
+  const fallbacks = rotationFallbacks(found);
+  for (const f of fallbacks) {
+    add(
+      'info',
+      `buildings/${f.type}/${f.type}_r${f.rotation}.png`,
+      `Temporary fallback: drawn as ${f.mirrored ? 'mirrored ' : ''}${f.from}.png until this directional image is provided`,
+    );
+  }
+  checkLayering(found, meta, add);
 
   const missing = ASSET_MANIFEST.filter((e) => !found.has(e.key));
   const missingRequired = missing.filter((e) => e.required).map((e) => `${e.file}.webp|png`);
   const missingOptional = missing.filter((e) => !e.required).map((e) => `${e.file}.webp|png`);
   for (const m of missingRequired) add(opts.strict ? 'error' : 'warning', m, 'Missing — the procedural fallback will be drawn');
-  return { issues, matched: [...found.values()], missingRequired, missingOptional };
+  return { issues, matched: [...found.values()], missingRequired, missingOptional, fallbacks };
+}
+
+/** For every building with at least one image, which rotations borrow another rotation's image. */
+export function rotationFallbacks(found: Map<string, string>): RotationFallback[] {
+  const out: RotationFallback[] = [];
+  for (const type of BUILDING_ORDER) {
+    for (const rotation of [0, 1, 2, 3] as Rotation[]) {
+      const choice = resolveBuildingSprite(type, rotation, (k) => found.has(k));
+      if (!choice || (choice.key === buildingKey(type, rotation) && !choice.flipX)) continue;
+      out.push({ type, rotation, from: manifestByKey.get(choice.key)!.file, mirrored: choice.flipX });
+    }
+  }
+  return out;
+}
+
+/**
+ * Decoration that overhangs the logical footprint (gardens, flowers, fences) belongs in the
+ * _ground layer, which is drawn beneath every building. Also keeps the visual footprint
+ * consistent between the directional images of one building.
+ */
+function checkLayering(found: Map<string, string>, meta: ArtMeta, add: (s: Severity, file: string, m: string) => void) {
+  for (const type of BUILDING_ORDER) {
+    const present = ([0, 1, 2, 3] as Rotation[]).map((r) => manifestByKey.get(buildingKey(type, r))!).filter((e) => found.has(e.key));
+    const declared = present.filter((e) => meta[e.file]?.visual);
+    for (const e of present) {
+      const path = found.get(e.key)!;
+      if (meta[e.file]?.visual && !found.has(groundKey(e.key))) {
+        add(
+          'warning',
+          path,
+          `Art overhangs its logical footprint but has no ground layer. Gardens, flowers and fences painted in the building image ` +
+            `are layered with the building and can cover a neighbour behind it — export them as ${e.file}${GROUND_SUFFIX}.png (art:import --ground)`,
+        );
+      }
+      if (declared.length && !meta[e.file]?.visual) {
+        add(
+          'warning',
+          path,
+          `Other directions of this building declare a visual footprint (${declared.map((d) => d.file.split('/').pop()).join(', ')}) but this one does not; ` +
+            'if it paints the same garden, import it with the same --visual',
+        );
+      }
+    }
+  }
 }
 
 function checkMeta(meta: ArtMeta, found: Map<string, string>, add: (s: Severity, file: string, m: string) => void) {

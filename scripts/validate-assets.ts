@@ -34,7 +34,8 @@ try {
 }
 const report = validateArt(files, { strict, meta });
 
-for (const i of report.issues) console.log(`${i.severity === 'error' ? 'ERROR  ' : 'warning'}  ${i.file}\n         ${i.message}`);
+const label = { error: 'ERROR  ', warning: 'warning', info: 'info   ' } as const;
+for (const i of report.issues) console.log(`${label[i.severity]}  ${i.file}\n         ${i.message}`);
 console.log(
   `\n${files.length} file(s) checked, ${report.matched.length} matched the manifest.` +
     `\nMissing required: ${report.missingRequired.length}, missing optional: ${report.missingOptional.length}.`,

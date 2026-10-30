@@ -123,6 +123,9 @@ Each painted building image has two footprints:
 keeps the anchor at the logical footprint's centre. That means the scene positions every sprite
 exactly as before: at the centre of the tiles the building occupies.
 
+- **Layers:** by project decision, decoration (gardens, flowers, fences, paths) goes in the
+  ground layer and the building image holds only the building. Collision always uses the logical
+  footprint, so decoration never blocks neighbouring tiles.
 - **Depth:** the upright sprite sorts by its logical footprint. Its optional ground layer
   (`*_ground.png`) goes in the `groundDecalDepth` band (`src/game/spriteRules.ts`), below every
   building.

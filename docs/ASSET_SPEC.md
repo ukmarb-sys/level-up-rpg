@@ -50,12 +50,15 @@ Prefer strong silhouettes and value contrast over fine texture.
   - r1: up-left (hidden);
   - r2: up-right (hidden);
   - r3: down-right.
-- **Only r0 is required.** When other rotations are missing:
+- **Only r0 is required.** Mirrored rotations are a **temporary fallback** until all four
+  directional images (`_r0`–`_r3`) exist. `npm run validate:assets` lists each direction that is
+  still borrowed as an `info` line. When other rotations are missing:
   - r2 reuses r0;
   - r1 and r3 use r0 **mirrored horizontally**. That keeps the footprint correct, but it also
     flips the lighting to come from the top-right and mirrors doors and signs.
 
-  Painting r1–r3 removes these artefacts.
+  Painting r1–r3 removes these artefacts. A real directional image always takes priority over a
+  fallback; no code change is needed when one is added.
 
 ## 4. Canvas size and anchor
 
@@ -317,13 +320,23 @@ These checks are heuristics. Always place, rotate and move the building in game
 - **Visual judgement:** checking every preview and every building in game.
 - **Effect points:** placing the cottage `chimney` and sawmill `wheel` (and the `orb` if it
   isn't detected).
-- **Real rotations:** painting r1–r3 if mirrored rotations look wrong.
+- **Real rotations:** providing `_r1`, `_r2` and `_r3` for each building. Mirrored rotations are
+  temporary fallbacks, and the validator lists them until they're replaced.
 - **Seamless terrain:** making terrain textures seamless before import.
 - **WebP (optional):** converting the PNG masters with an external tool such as
   `cwebp -q 90 -alpha_q 100 in.png -o out.webp` and re-running the validator. Not required:
   PNG works in game.
 
 ## 11. Artwork larger than its logical footprint
+
+> **Project decisions**
+> - The cottage's logical (collision) footprint stays **1×1**.
+> - Gardens, flowers, paths and fences are **visual decoration only**: they never block
+>   neighbouring tiles.
+> - Use **separate ground and building layers** wherever possible: decoration goes in
+>   `_ground.png`, and the building image holds the building.
+> - Mirrored rotations are **temporary fallbacks** until four directional images exist.
+> - Gameplay and saves are unaffected.
 
 Premium illustrations often paint more than the building itself: a cottage with a garden,
 lanterns, a path and flower beds around a 1×1 tile. The pipeline supports this without changing
@@ -367,25 +380,30 @@ For the cottage, the canvas and anchor become (generated values, also in §6):
 | 2×2 (half a tile all round) | 576 × 896 | (288, 736) | (288, 800) | (288, 864) |
 | 3×3 (one tile all round) | 832 × 1344 | (416, 1120) | (416, 1184) | (416, 1312) |
 
-### Optional ground layer
+### Ground layer and building layer (preferred)
 
-Overhanging *ground* decoration (lawn, flower beds, paths, a soft shadow) is best delivered as
-a separate image with the exact same size:
+Export decoration that extends beyond the tile as a separate image of the exact same size:
 
 `buildings/<type>/<type>_r<N>_ground.png` (for example `buildings/cottage/cottage_r0_ground.png`)
 
-- **Depth:** the ground layer is drawn in its own band. That band is above the terrain, below
-  the build-mode grid, and below **every** building, so a neighbour standing on the garden is
-  always drawn on top of it.
-- **What goes where:** the main image keeps everything that stands up (walls, roof, fences,
-  lanterns, trees). The game sorts it by the logical footprint like any building.
-- **Single image:** without a ground layer, the garden is part of the main image. That works,
-  but a building placed directly *behind* the cottage can then be partly covered by the garden
-  painted at the cottage's back edge. Prefer a ground layer for gardens wider than about half a
-  tile.
+| Layer | Contains | Drawn |
+| --- | --- | --- |
+| `cottage_r0_ground.png` | Lawn, flower beds, **fences**, paths, stepping stones, low hedges, the soft contact shadow | In the ground band: above terrain, below the build grid and below **every** building |
+| `cottage_r0.png` | The cottage itself: walls, roof, chimney, door, windows, and anything attached to it (porch lantern, window boxes) | Sorted with the buildings by the 1×1 logical tile |
+
+- **Fences** go in the ground layer even though they stand up. They're low, and in the ground
+  layer they can never cover a neighbouring building or its base.
+- **Neighbours:** a building placed on a tile under the garden is always drawn over it, and
+  never conflicts with it in placement or collision.
+- **Fallback:** a single image (house and garden together) still works, but then everything is
+  sorted with the house, so its back edge can paint over a building directly behind.
+  `npm run validate:assets` warns about every image that overhangs without a ground layer.
+- **Directions:** each directional image has its own ground layer (`_r1_ground.png`, …). Mirrored
+  fallbacks mirror the ground layer with the building.
 - **Shared metadata:** the ground layer uses its building image's metadata; it has no
   `art-meta.json` entry of its own. Alignment is validated on building and ground layer
-  together.
+  together. Import every direction with the same `--visual`; the validator warns if the
+  directions disagree.
 
 ### Selection, taps and zoom
 
@@ -409,11 +427,11 @@ a separate image with the exact same size:
 ### Importing an illustration with overhang
 
 ```bash
-# one image (house + garden), garden half a tile beyond the tile on every side
-npm run art:import -- path/to/cottage.png --as cottage_r0 --visual 2x2
-
-# house and garden exported as two layers of the same pixel size
+# preferred: house and garden (incl. flowers and fences) exported as two layers of the same pixel size
 npm run art:import -- path/to/cottage_house.png --as cottage_r0 --visual 2x2 --ground path/to/cottage_garden.png
+
+# fallback: one image (house + garden), garden half a tile beyond the tile on every side
+npm run art:import -- path/to/cottage.png --as cottage_r0 --visual 2x2
 
 # asymmetric: garden only in front of the cottage (one extra tile along +v)
 npm run art:import -- path/to/cottage.png --as cottage_r0 --visual 0,0,1,2

@@ -229,7 +229,7 @@ function main() {
   const report = validateArt(files, { meta: readMeta() });
   const mine = report.issues.filter((i) => i.file.includes(entry.file));
   if (mine.length === 0) console.log('  ✔ Validation passed');
-  for (const i of mine) console.log(`  ${i.severity === 'error' ? '✖' : '⚠'} ${i.message}`);
+  for (const i of mine) console.log(`  ${i.severity === 'error' ? '✖' : i.severity === 'info' ? 'ℹ' : '⚠'} ${i.message}`);
   if (mine.some((i) => i.severity === 'error')) process.exit(1);
 }
 
