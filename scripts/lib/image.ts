@@ -69,45 +69,136 @@ function hasChunk(buf: Buffer, type: string): boolean {
   return false;
 }
 
-/** Decodes a non-interlaced 8-bit RGBA PNG. Returns null for other encodings. */
-export function decodePng(buf: Buffer): RgbaImage | null {
-  const info = readImageInfo(buf);
-  if (!info || info.format !== 'png' || info.encodingIssue) return null;
-  const { width, height } = info;
+export interface DecodedImage {
+  width: number;
+  height: number;
+  /** Straight (non-premultiplied) RGBA, 4 bytes per pixel. */
+  data: Uint8Array;
+  /** True if the file carries any transparency information. */
+  hasAlpha: boolean;
+}
+
+interface Chunks {
+  ihdr: Buffer;
+  idat: Buffer;
+  plte?: Buffer;
+  trns?: Buffer;
+}
+
+function readChunks(buf: Buffer): Chunks | null {
+  if (buf.length < 33 || !buf.subarray(0, 8).equals(PNG_SIG)) return null;
   const idat: Buffer[] = [];
+  let ihdr: Buffer | undefined;
+  let plte: Buffer | undefined;
+  let trns: Buffer | undefined;
   let off = 8;
   while (off + 8 <= buf.length) {
     const len = buf.readUInt32BE(off);
     const type = buf.toString('ascii', off + 4, off + 8);
-    if (type === 'IDAT') idat.push(buf.subarray(off + 8, off + 8 + len));
-    if (type === 'IEND') break;
+    const data = buf.subarray(off + 8, off + 8 + len);
+    if (type === 'IHDR') ihdr = data;
+    else if (type === 'IDAT') idat.push(data);
+    else if (type === 'PLTE') plte = data;
+    else if (type === 'tRNS') trns = data;
+    else if (type === 'IEND') break;
     off += 12 + len;
   }
-  const raw = inflateSync(Buffer.concat(idat));
-  const bpp = 4;
+  return ihdr ? { ihdr, idat: Buffer.concat(idat), plte, trns } : null;
+}
+
+const CHANNELS: Record<number, number> = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
+
+/**
+ * Decodes common PNG variants produced by image tools: greyscale, RGB, palette (with tRNS),
+ * grey+alpha and RGBA, at 8 or 16 bits per channel, non-interlaced. Returns RGBA8.
+ */
+export function decodeImage(buf: Buffer): DecodedImage {
+  const c = readChunks(buf);
+  if (!c) throw new Error('Not a PNG file (convert WebP/JPEG to PNG first)');
+  const width = c.ihdr.readUInt32BE(0);
+  const height = c.ihdr.readUInt32BE(4);
+  const depth = c.ihdr[8];
+  const colorType = c.ihdr[9];
+  const interlace = c.ihdr[12];
+  const channels = CHANNELS[colorType];
+  if (!channels) throw new Error(`Unsupported PNG colour type ${colorType}`);
+  if (interlace !== 0) throw new Error('Interlaced PNGs are not supported; re-export without interlacing');
+  if (depth !== 8 && depth !== 16) throw new Error(`Unsupported PNG bit depth ${depth} (use 8 or 16)`);
+  if (colorType === 3 && depth !== 8) throw new Error('Palette PNGs must be 8-bit');
+  const bytesPerSample = depth / 8;
+  const bpp = channels * bytesPerSample;
   const stride = width * bpp;
-  const out = Buffer.alloc(stride * height);
+  const raw = inflateSync(c.idat);
+  const px = Buffer.alloc(stride * height);
   for (let y = 0; y < height; y++) {
     const filter = raw[y * (stride + 1)];
     const src = y * (stride + 1) + 1;
     const dst = y * stride;
     for (let x = 0; x < stride; x++) {
-      const a = x >= bpp ? out[dst + x - bpp] : 0;
-      const b = y > 0 ? out[dst - stride + x] : 0;
-      const c = x >= bpp && y > 0 ? out[dst - stride + x - bpp] : 0;
+      const a = x >= bpp ? px[dst + x - bpp] : 0;
+      const b = y > 0 ? px[dst - stride + x] : 0;
+      const cc = x >= bpp && y > 0 ? px[dst - stride + x - bpp] : 0;
       let v = raw[src + x];
       if (filter === 1) v += a;
       else if (filter === 2) v += b;
       else if (filter === 3) v += (a + b) >> 1;
       else if (filter === 4) {
-        const p = a + b - c;
+        const p = a + b - cc;
         const pa = Math.abs(p - a);
         const pb = Math.abs(p - b);
-        const pc = Math.abs(p - c);
-        v += pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+        const pc = Math.abs(p - cc);
+        v += pa <= pb && pa <= pc ? a : pb <= pc ? b : cc;
       }
-      out[dst + x] = v & 255;
+      px[dst + x] = v & 255;
     }
   }
-  return { width, height, alpha: (x, y) => out[y * stride + x * bpp + 3] };
+  const sample = (i: number) => px[i * bytesPerSample]; // high byte of 16-bit samples
+  const out = new Uint8Array(width * height * 4);
+  const trnsGrey = colorType === 0 && c.trns ? c.trns.readUInt16BE(0) : -1;
+  const trnsRgb = colorType === 2 && c.trns ? [c.trns.readUInt16BE(0), c.trns.readUInt16BE(2), c.trns.readUInt16BE(4)] : null;
+  const full = (i: number) => (bytesPerSample === 2 ? px.readUInt16BE(i * 2) : px[i]);
+  for (let p = 0; p < width * height; p++) {
+    const s = p * channels;
+    const o = p * 4;
+    switch (colorType) {
+      case 0:
+        out[o] = out[o + 1] = out[o + 2] = sample(s);
+        out[o + 3] = full(s) === trnsGrey ? 0 : 255;
+        break;
+      case 2:
+        out[o] = sample(s);
+        out[o + 1] = sample(s + 1);
+        out[o + 2] = sample(s + 2);
+        out[o + 3] = trnsRgb && full(s) === trnsRgb[0] && full(s + 1) === trnsRgb[1] && full(s + 2) === trnsRgb[2] ? 0 : 255;
+        break;
+      case 3: {
+        const idx = px[p];
+        out[o] = c.plte?.[idx * 3] ?? 0;
+        out[o + 1] = c.plte?.[idx * 3 + 1] ?? 0;
+        out[o + 2] = c.plte?.[idx * 3 + 2] ?? 0;
+        out[o + 3] = c.trns && idx < c.trns.length ? c.trns[idx] : 255;
+        break;
+      }
+      case 4:
+        out[o] = out[o + 1] = out[o + 2] = sample(s);
+        out[o + 3] = sample(s + 1);
+        break;
+      case 6:
+        out[o] = sample(s);
+        out[o + 1] = sample(s + 1);
+        out[o + 2] = sample(s + 2);
+        out[o + 3] = sample(s + 3);
+        break;
+    }
+  }
+  const hasAlpha = colorType === 4 || colorType === 6 || !!c.trns;
+  return { width, height, data: out, hasAlpha };
+}
+
+/** Decodes a non-interlaced 8-bit RGBA PNG (the required master format). Null for other encodings. */
+export function decodePng(buf: Buffer): RgbaImage | null {
+  const info = readImageInfo(buf);
+  if (!info || info.format !== 'png' || info.encodingIssue) return null;
+  const img = decodeImage(buf);
+  return { width: img.width, height: img.height, alpha: (x, y) => img.data[(y * img.width + x) * 4 + 3] };
 }

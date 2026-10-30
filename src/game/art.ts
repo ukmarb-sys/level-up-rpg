@@ -9,49 +9,10 @@
 import Phaser from 'phaser';
 import { BUILDINGS } from '../core/buildings';
 import type { BuildingType, Rotation } from '../core/types';
+import { Frame, proceduralAnchors, visibleFace, type ArtAnchors, type Rect } from '../assets/geometry';
 import { isoPoint } from './iso';
 
-export interface Rect {
-  x: number;
-  y: number;
-  w: number;
-  d: number;
-}
-
-export class Frame {
-  constructor(
-    readonly W: number,
-    readonly D: number,
-    readonly rotation: Rotation,
-  ) {}
-
-  /** Maps a local point to grid offsets inside the rotated footprint. */
-  point(u: number, v: number): { x: number; y: number } {
-    const { W, D } = this;
-    switch (this.rotation) {
-      case 0:
-        return { x: u, y: v };
-      case 1:
-        return { x: D - v, y: u };
-      case 2:
-        return { x: W - u, y: D - v };
-      case 3:
-        return { x: v, y: W - u };
-    }
-  }
-
-  rect(u: number, v: number, w: number, d: number): Rect {
-    const a = this.point(u, v);
-    const b = this.point(u + w, v + d);
-    return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), d: Math.abs(b.y - a.y) };
-  }
-
-  /** Local ridge axis 'u' becomes grid 'x' or 'y' depending on rotation. */
-  axis(a: 'u' | 'v'): 'x' | 'y' {
-    const odd = this.rotation % 2 === 1;
-    return (a === 'u') !== odd ? 'x' : 'y';
-  }
-}
+export { Frame, type ArtAnchors, type Rect };
 
 export function shade(color: number, factor: number): number {
   const c = Phaser.Display.Color.IntegerToColor(color);
@@ -142,26 +103,6 @@ export function wallPatch(
   poly(g, pts, color, alpha);
 }
 
-/** Picks which visible wall faces a local side so details (doors) turn with the building. */
-function visibleFace(frame: Frame, rect: Rect): { face: 'x' | 'y'; len: number } {
-  // The local "front" (+v) faces grid +y at rot 0, +x at rot 3 ... use whichever is visible.
-  const r = frame.rotation;
-  if (r === 0 || r === 1) return { face: r === 0 ? 'y' : 'x', len: r === 0 ? rect.w : rect.d };
-  // Front is hidden at rotations 2/3; show the side door on the other visible face.
-  return { face: r === 2 ? 'x' : 'y', len: r === 2 ? rect.d : rect.w };
-}
-
-export interface ArtAnchors {
-  /** Where animated effects attach, in container-local pixels. */
-  chimney?: Pt;
-  orb?: Pt;
-  wheel?: Pt;
-  windows?: Pt[];
-  crops?: { rows: Pt[][] };
-  /** Top of the building, used for floating labels/selection markers. */
-  top: Pt;
-}
-
 const STONE = 0x8d8a9e;
 const DARK_WOOD = 0x5a3a24;
 const WOOD = 0x8a5a33;
@@ -199,11 +140,7 @@ export function drawBuilding(
       if (chimDepth < bodyMid) drawChim();
       gableRoof(g, f.rect(0.1, 0.12, 0.8, 0.76), 18, 14, f.axis('u'), 0xa4452f, 0xe8d3a8, alpha);
       if (chimDepth >= bodyMid) drawChim();
-      const winCenter =
-        win1 === 'y'
-          ? P(body.x + body.w * 0.47, body.y + body.d, 10)
-          : P(body.x + body.w, body.y + body.d * 0.47, 10);
-      return { chimney: P(chim.x + chim.w / 2, chim.y + chim.d / 2, 38), windows: [winCenter], top: P(full.x + full.w / 2, full.y + full.d / 2, 40) };
+      return proceduralAnchors(type, rotation);
     }
 
     case 'farm': {
@@ -218,19 +155,8 @@ export function drawBuilding(
       box(g, shed, 0, 14, 0xa3423a, alpha);
       gableRoof(g, shed, 14, 9, f.axis('v'), 0x5b3a2e, 0xa3423a, alpha);
       for (const [u, v] of posts) box(g, f.rect(u, v, 0.06, 0.06), 0, 6, 0x8f6a43, alpha);
-      // crop rows (animated separately)
-      const rows: Pt[][] = [];
-      for (let r = 0; r < 5; r++) {
-        const v = 0.95 + r * 0.42;
-        const row: Pt[] = [];
-        for (let k = 0; k < 6; k++) {
-          const p = f.point(0.22 + k * 0.28, v);
-          row.push(P(p.x, p.y, 0));
-        }
-        rows.push(row);
-      }
-      const shedTop = shed;
-      return { crops: { rows }, top: P(shedTop.x + shedTop.w / 2, shedTop.y + shedTop.d / 2, 28) };
+      // crop rows are drawn (and animated) by the scene from proceduralAnchors().crops
+      return proceduralAnchors(type, rotation);
     }
 
     case 'sawmill': {
@@ -242,12 +168,10 @@ export function drawBuilding(
       wallPatch(g, hall, door.face, door.len * 0.36, door.len * 0.28, 4, 12, 0x3a2716, alpha);
       gableRoof(g, f.rect(0.05, 0.1, 1.2, 0.8), 20, 13, f.axis('u'), 0x4f6b3a, WOOD, alpha);
       // log pile
-      const pile = f.rect(1.35, 0.2, 0.55, 0.6);
       for (let i = 0; i < 3; i++) box(g, f.rect(1.36, 0.22 + i * 0.19, 0.52, 0.16), 0, 5, 0x9c6b3e, alpha);
       box(g, f.rect(1.42, 0.3, 0.42, 0.16), 5, 5, 0xa87747, alpha);
       box(g, f.rect(1.42, 0.52, 0.42, 0.16), 5, 5, 0xa87747, alpha);
-      const wheelAt = f.point(1.2, 0.5);
-      return { wheel: P(wheelAt.x, wheelAt.y, 18), top: P(pile.x, pile.y, 34) };
+      return proceduralAnchors(type, rotation);
     }
 
     case 'mageTower': {
@@ -263,7 +187,7 @@ export function drawBuilding(
       wallPatch(g, tower, 'y', 0.4, 0.2, 22, 12, 0xb79cff, alpha);
       wallPatch(g, tower, 'x', 0.4, 0.2, 22, 12, 0xb79cff, alpha);
       spire(g, f.rect(0.52, 0.52, 0.96, 0.96), 71, 40, 0x4b3a99, alpha);
-      return { orb: P(1, 1, 128), windows: [P(0.6 + 0.5, 1.5, 28), P(1.5, 1.1, 28)], top: P(1, 1, 112) };
+      return proceduralAnchors(type, rotation);
     }
   }
 }

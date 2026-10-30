@@ -53,15 +53,19 @@ npm run dev        # Vite dev server
 npm test           # Vitest unit tests (placement, resources, save/load, projection)
 npm run build      # type-check + production build into dist/
 npm run preview    # serve dist/ at /level-up-rpg/ like GitHub Pages
+npm run art:import -- art.png --as cottage_r0   # cut out, scale, align, measure, validate
 npm run validate:assets   # check artwork in src/assets/art against the manifest
+npm run art:table         # print the asset reference tables used in docs/ASSET_SPEC.md
 ```
 
 Tech: React 19, TypeScript, Vite, Phaser 3. No paid APIs or secrets.
 
 ### Artwork
 
-The game is ready for painted / AI-generated sprites. Drop images into `src/assets/art`
-using the names in [docs/ASSET_SPEC.md](docs/ASSET_SPEC.md) and run `npm run validate:assets`.
+The game is ready for painted / AI-generated sprites. Import each image with
+`npm run art:import -- <file.png> --as <name>`, which removes the background, scales and aligns
+it to the footprint, measures its top and effect points, and validates it. Names, sizes and
+footprints are listed in [docs/ASSET_SPEC.md](docs/ASSET_SPEC.md).
 Anything missing falls back to the built-in procedural art, which is what ships today.
 [docs/RENDERING.md](docs/RENDERING.md) explains how terrain, buildings, depth sorting and
 the build-mode grid are drawn.

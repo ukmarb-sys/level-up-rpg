@@ -6,6 +6,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { ArtMeta } from '../src/assets/meta';
 import { validateArt, type ArtFile } from './lib/validate';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -16,14 +17,22 @@ function walk(dir: string): string[] {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
     if (statSync(p).isDirectory()) out = out.concat(walk(p));
-    else if (!/^(README\.md|\.gitkeep|\.DS_Store)$/.test(name)) out.push(p);
+    else if (!/^(README\.md|art-meta\.json|\.gitkeep|\.DS_Store)$/.test(name)) out.push(p);
   }
   return out;
 }
 
 const strict = process.argv.includes('--strict');
 const files: ArtFile[] = walk(artDir).map((p) => ({ path: relative(root, p).split('\\').join('/'), data: readFileSync(p) }));
-const report = validateArt(files, { strict });
+const metaPath = join(artDir, 'art-meta.json');
+let meta: ArtMeta = {};
+try {
+  meta = JSON.parse(readFileSync(metaPath, 'utf8')) as ArtMeta;
+} catch (e) {
+  console.log(`ERROR    src/assets/art/art-meta.json\n         Unreadable: ${(e as Error).message}`);
+  process.exitCode = 1;
+}
+const report = validateArt(files, { strict, meta });
 
 for (const i of report.issues) console.log(`${i.severity === 'error' ? 'ERROR  ' : 'warning'}  ${i.file}\n         ${i.message}`);
 console.log(
@@ -32,4 +41,4 @@ console.log(
 );
 const errors = report.issues.filter((i) => i.severity === 'error').length;
 console.log(errors ? `\n✖ ${errors} error(s)` : '\n✔ No errors');
-process.exit(errors ? 1 : 0);
+process.exit(errors || process.exitCode ? 1 : 0);

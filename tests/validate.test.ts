@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { decodePng, readImageInfo } from '../scripts/lib/image';
 import { validateArt } from '../scripts/lib/validate';
 import { alignedObjectPng, alignedTilePng } from './helpers/fixtures';
-import { encodePng } from './helpers/png';
+import { encodePng } from '../scripts/lib/png';
 
 const art = (file: string, data: Buffer) => ({ path: `src/assets/art/${file}`, data });
 const errorsFor = (file: string, data: Buffer) =>

@@ -13,9 +13,11 @@ src/
     store.ts       GameStore: state + interaction mode + autosave + events
   assets/    Artwork contract — pure data shared by the game, validator and tests
     spec.ts        Projection scale, canvas/anchor formulas
-    manifest.ts    Every sprite the renderer can use, with expected geometry
+    geometry.ts    Rotation frame + procedural anchor points (shared by art.ts and manifest)
+    manifest.ts    Every sprite the renderer can use: geometry, reference top/effect points
+    meta.ts        Applies art-meta.json (measured top/effect points per imported file)
     resolve.ts     Sprite choice + fallbacks (exact rotation → opposite → mirrored)
-    art/           Drop folder for PNG/WebP artwork (bundled only if present)
+    art/           PNG/WebP artwork (bundled only if present) + art-meta.json
   game/      Phaser rendering and input (reads the store, calls its methods)
     iso.ts         Isometric projection math
     art.ts         Procedural fallback art (buildings, props, ground textures)
@@ -26,7 +28,8 @@ src/
     createGame.ts  Boots Phaser at device pixel ratio inside a DOM node
   ui/        React HUD: start screen, resource bar, build menu, action bar, toasts
   modules/   Pluggable gameplay modules (see below)
-scripts/     validate-assets.ts (+ lib/: PNG/WebP inspection and validation rules)
+scripts/     import-art.ts, validate-assets.ts, print-asset-table.ts
+             lib/: PNG decode/encode, raster ops, importer, validation rules, doc tables
 tests/       Vitest specs for core logic, assets, validation and save compatibility
 ```
 

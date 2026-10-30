@@ -3,7 +3,8 @@
  * Pure so fallback behaviour is unit-tested.
  */
 import type { BuildingType, Rotation } from '../core/types';
-import { ART_EXTENSIONS, buildingKey, manifestByFile } from './manifest';
+import { ART_EXTENSIONS, buildingKey, manifestByFile, type AssetEntry } from './manifest';
+import { SOURCE_SCALE } from './spec';
 
 export interface SpriteChoice {
   key: string;
@@ -36,6 +37,15 @@ export function resolveBuildingSprite(
   return candidates.find((c) => has(c.key)) ?? null;
 }
 
+/**
+ * Converts a sprite-space point (source px, same space as the anchor) to world px relative to
+ * the sprite's anchor, mirroring it when the image is drawn flipped.
+ */
+export function effectPoint(e: AssetEntry, p: { x: number; y: number }, flipX: boolean) {
+  const dx = (p.x - e.geometry.anchor.x) / SOURCE_SCALE;
+  return { x: flipX ? -dx : dx, y: (p.y - e.geometry.anchor.y) / SOURCE_SCALE };
+}
+
 /** Picks a terrain variant key that loaded, cycling through those available. */
 export function resolveTerrainKey(variant: number, available: string[]): string | null {
   if (available.length === 0) return null;
@@ -44,17 +54,18 @@ export function resolveTerrainKey(variant: number, available: string[]): string 
 
 /**
  * Maps files found on disk/in the bundle (paths ending in "<file>.<ext>") to manifest keys.
- * Prefers WebP over PNG when both exist. Unknown files are returned separately.
+ * Matching is case-sensitive, exactly like the game's import.meta.glob('**\/*.{webp,png}'):
+ * "cottage_r0.PNG" or "magetower_r0.png" are NOT loaded and are reported as unknown.
+ * Prefers WebP over PNG when both exist.
  */
 export function matchArtFiles(paths: string[]): { found: Map<string, string>; unknown: string[] } {
   const found = new Map<string, string>();
   const rank = new Map<string, number>();
   const unknown: string[] = [];
   for (const p of paths) {
-    const m = /(?:^|\/)art\/(.+)\.([a-z0-9]+)$/i.exec(p.replace(/\\/g, '/'));
-    const ext = m?.[2].toLowerCase();
+    const m = /(?:^|\/)art\/(.+)\.([^./]+)$/.exec(p.replace(/\\/g, '/'));
     const entry = m && manifestByFile.get(m[1]);
-    const r = ART_EXTENSIONS.indexOf(ext as (typeof ART_EXTENSIONS)[number]);
+    const r = m ? ART_EXTENSIONS.indexOf(m[2] as (typeof ART_EXTENSIONS)[number]) : -1;
     if (!entry || r < 0) {
       unknown.push(p);
       continue;
@@ -65,4 +76,25 @@ export function matchArtFiles(paths: string[]): { found: Map<string, string>; un
     }
   }
   return { found, unknown };
+}
+
+/** Explains why a file in the art folder is not picked up, with the fix. */
+export function explainUnknownFile(path: string): string {
+  const m = /(?:^|\/)art\/(.+)\.([^./]+)$/.exec(path.replace(/\\/g, '/'));
+  if (!m) return 'File has no extension; use .webp or .png';
+  const [, file, ext] = m;
+  const lower = ext.toLowerCase();
+  if (lower === 'jpg' || lower === 'jpeg') return 'JPEG has no transparency; export a PNG with alpha (then optionally WebP)';
+  const known = ART_EXTENSIONS.includes(lower as (typeof ART_EXTENSIONS)[number]);
+  if (known && ext !== lower) {
+    const fixed = manifestByFile.has(file) ? `${file}.${lower}` : `<correct name>.${lower}`;
+    return `Extension must be lowercase ".${lower}" — the game only loads lowercase .webp/.png. Rename to ${fixed}`;
+  }
+  if (!known) return `Unsupported extension ".${ext}"; use .webp or .png`;
+  const caseMatch = [...manifestByFile.keys()].find((f) => f.toLowerCase() === file.toLowerCase());
+  if (caseMatch) return `Wrong letter case — paths are case-sensitive. Rename to ${caseMatch}.${ext}`;
+  const base = file.split('/').pop()!.toLowerCase();
+  const sameName = [...manifestByFile.keys()].find((f) => f.split('/').pop()!.toLowerCase() === base);
+  if (sameName) return `Wrong folder. Move to ${sameName}.${ext}`;
+  return 'Not in the asset manifest (check folder, filename and rotation suffix _r0–_r3)';
 }
