@@ -23,8 +23,10 @@ fantasy realm on a floating isometric island.
 | Select / move / demolish | tap a building, then **Move**, **Rotate** or **Demolish** | click |
 | Cancel | **Cancel** / **Close** | `Esc` |
 
-The ghost footprint is green where the building fits and red where it is blocked
-(out of bounds or overlapping). Rotating a ghost next to another building nudges it
+While placing or moving, the construction grid appears and occupied tiles are shaded. The
+preview footprint is green where the building fits and red where it is blocked; the action bar
+says why (overlap, outside the realm, or not enough resources). The build tray can be
+collapsed to see more of the map. Rotating a ghost next to another building nudges it
 to the nearest free spot within two tiles.
 
 ### Buildings and resources
@@ -51,10 +53,18 @@ npm run dev        # Vite dev server
 npm test           # Vitest unit tests (placement, resources, save/load, projection)
 npm run build      # type-check + production build into dist/
 npm run preview    # serve dist/ at /level-up-rpg/ like GitHub Pages
+npm run validate:assets   # check artwork in src/assets/art against the manifest
 ```
 
-Tech: React 19, TypeScript, Vite, Phaser 3. All artwork is drawn programmatically
-(Phaser Graphics and inline SVG) — there are no image assets, paid APIs or secrets.
+Tech: React 19, TypeScript, Vite, Phaser 3. No paid APIs or secrets.
+
+### Artwork
+
+The game is ready for painted / AI-generated sprites. Drop images into `src/assets/art`
+using the names in [docs/ASSET_SPEC.md](docs/ASSET_SPEC.md) and run `npm run validate:assets`.
+Anything missing falls back to the built-in procedural art, which is what ships today.
+[docs/RENDERING.md](docs/RENDERING.md) explains how terrain, buildings, depth sorting and
+the build-mode grid are drawn.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the code is organised and how
 future systems (quests, coaching, progression, rewards, mysteries) plug in.

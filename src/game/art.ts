@@ -268,35 +268,40 @@ export function drawBuilding(
   }
 }
 
-/** Grass tile textures with a few variants for organic ground. */
+/**
+ * Procedural ground textures (used when no terrain artwork is present). No outlines are baked
+ * in: the construction grid is a separate overlay shown only while building.
+ */
 export function makeGroundTextures(scene: Phaser.Scene, tileW: number, tileH: number) {
-  const variants = [0x3f6b3a, 0x3a6536, 0x44723d, 0x3d6838];
+  // Near-white bases carry only texture; the scene tints each tile to its final colour.
+  const variants = [0xf2f2f2, 0xeaeaea, 0xf6f6f6, 0xeeeeee];
+  const diamond = [
+    { x: tileW / 2, y: 0 },
+    { x: tileW, y: tileH / 2 },
+    { x: tileW / 2, y: tileH },
+    { x: 0, y: tileH / 2 },
+  ];
   variants.forEach((base, i) => {
     const key = `grass-${i}`;
     if (scene.textures.exists(key)) return;
     const g = scene.make.graphics({ x: 0, y: 0 }, false);
-    const diamond = [
-      { x: tileW / 2, y: 0 },
-      { x: tileW, y: tileH / 2 },
-      { x: tileW / 2, y: tileH },
-      { x: 0, y: tileH / 2 },
-    ];
     g.fillStyle(base, 1);
-    g.fillPoints(diamond, true);
-    // deterministic speckles: tufts and tiny flowers
+    // Overdraw by half a pixel so neighbouring diamonds never show hairline seams.
+    g.fillPoints(
+      diamond.map((p) => ({ x: p.x + Math.sign(p.x - tileW / 2) * 0.5, y: p.y + Math.sign(p.y - tileH / 2) * 0.5 })),
+      true,
+    );
     let seed = 1337 + i * 97;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    for (let k = 0; k < 14; k++) {
+    // grass tufts: short light/dark strokes
+    for (let k = 0; k < 22; k++) {
       const u = rnd();
       const v = rnd();
-      const x = (u - v) * (tileW / 2) * 0.85 + tileW / 2;
-      const y = (u + v) * (tileH / 2) * 0.85 + tileH * 0.075;
-      const c = k % 7 === 0 ? (i % 2 ? 0xe6d36a : 0xc8a6ff) : shade(base, rnd() > 0.5 ? 1.25 : 0.8);
-      g.fillStyle(c, k % 7 === 0 ? 0.9 : 0.6);
-      g.fillRect(x, y, k % 7 === 0 ? 2 : 2, 1);
+      const x = (u - v) * (tileW / 2) * 0.82 + tileW / 2;
+      const y = (u + v) * (tileH / 2) * 0.82 + tileH * 0.09;
+      g.fillStyle(shade(base, rnd() > 0.45 ? 1.06 : 0.8), 0.75);
+      g.fillRect(x, y, 1, 2);
     }
-    g.lineStyle(1, 0x000000, 0.12);
-    g.strokePoints(diamond, true);
     g.generateTexture(key, tileW, tileH);
     g.destroy();
   });
@@ -310,4 +315,96 @@ export function makeGroundTextures(scene: Phaser.Scene, tileW: number, tileH: nu
     g.generateTexture('mote', 16, 16);
     g.destroy();
   }
+}
+
+/**
+ * Procedural fallback props, drawn around (0,0) = centre of a 1x1 footprint at ground level.
+ * Returns the height (world px) of the prop's top for depth/effects.
+ */
+export function drawProp(g: Phaser.GameObjects.Graphics, type: string, variant = 0): number {
+  const ellipseShadow = (rx: number) => g.fillStyle(0x000000, 0.22).fillEllipse(0, 2, rx * 2, rx);
+  switch (type) {
+    case 'treePine': {
+      ellipseShadow(14);
+      g.fillStyle(0x4a3222, 1).fillRect(-2, -10, 4, 12);
+      const tiers = [
+        [16, -6, -30],
+        [13, -20, -42],
+        [9, -32, -54],
+      ];
+      for (const [hw, base, top] of tiers) {
+        g.fillStyle(0x1f4a35, 1).fillTriangle(-hw, base, hw, base, 0, top);
+        g.fillStyle(0x163a2a, 1).fillTriangle(0, base, hw, base, 0, top);
+      }
+      return 54;
+    }
+    case 'treeOak': {
+      ellipseShadow(16);
+      g.fillStyle(0x5a3a24, 1).fillRect(-2.5, -14, 5, 16);
+      const blobs = [
+        [-8, -24, 11, 0x3f7a3a],
+        [8, -24, 11, 0x356b33],
+        [0, -34, 13, 0x4a8a42],
+        [0, -22, 10, 0x2f5f2e],
+      ] as const;
+      for (const [x, y, r, c] of blobs) g.fillStyle(c, 1).fillCircle(x, y, r);
+      g.fillStyle(0x6fae5c, 0.6).fillCircle(-4, -38, 5);
+      return 46;
+    }
+    case 'treeEnchanted': {
+      ellipseShadow(14);
+      g.fillStyle(0x3b2c3f, 1).fillTriangle(-4, 2, 4, 2, 1, -26);
+      g.lineStyle(2, 0x3b2c3f, 1).lineBetween(0, -16, -9, -26).lineBetween(1, -20, 10, -30);
+      const blobs = [
+        [-9, -30, 9, 0x5b45c0],
+        [9, -32, 9, 0x4b3a99],
+        [0, -38, 11, 0x6d58d6],
+      ] as const;
+      for (const [x, y, r, c] of blobs) g.fillStyle(c, 1).fillCircle(x, y, r);
+      g.fillStyle(0xb79cff, 0.8).fillCircle(-5, -40, 2).fillCircle(6, -33, 1.6).fillCircle(-10, -29, 1.4);
+      return 48;
+    }
+    case 'rockMossy': {
+      ellipseShadow(13);
+      g.fillStyle(0x6d6a7c, 1).fillPoints(
+        [
+          { x: -12, y: 0 },
+          { x: -9, y: -10 },
+          { x: 0, y: -15 - variant * 2 },
+          { x: 10, y: -9 },
+          { x: 13, y: 0 },
+          { x: 0, y: 4 },
+        ],
+        true,
+      );
+      g.fillStyle(0x56536a, 1).fillTriangle(0, -15 - variant * 2, 13, 0, 0, 4);
+      g.fillStyle(0x5f8a45, 0.9).fillEllipse(-4, -11, 12, 5);
+      return 16;
+    }
+    case 'ruinPillar': {
+      ellipseShadow(13);
+      g.fillStyle(0x7d7a96, 1).fillRect(-7, -40, 14, 42);
+      g.fillStyle(0x5f5c78, 1).fillRect(1, -40, 6, 42);
+      g.fillStyle(0x8f8ca8, 1).fillRect(-10, -4, 20, 6);
+      // broken top
+      g.fillStyle(0x7d7a96, 1).fillTriangle(-7, -40, 7, -40, -2, -48);
+      g.fillStyle(0xf0c96a, 0.9).fillRect(-4, -30, 2, 6).fillRect(-4, -20, 2, 4);
+      g.fillStyle(0x4f7a3a, 0.8).fillEllipse(-4, -6, 10, 4);
+      return 48;
+    }
+    case 'crystalCluster': {
+      ellipseShadow(11);
+      const shards = [
+        [-7, 0, -10, -18, 4],
+        [0, 0, 1, -26, 5],
+        [7, 0, 9, -15, 4],
+      ] as const;
+      for (const [x, y, tx, ty, hw] of shards) {
+        g.fillStyle(0x7b5cff, 1).fillTriangle(x - hw, y, x + hw, y, tx, ty);
+        g.fillStyle(0xc4b2ff, 0.85).fillTriangle(x - hw, y, x, y, tx, ty);
+      }
+      return 26;
+    }
+  }
+  return 0;
 }

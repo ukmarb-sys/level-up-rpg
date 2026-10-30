@@ -6,12 +6,24 @@ import Phaser from 'phaser';
 import { footprintSize } from '../core/grid';
 import type { GameStore, Snapshot } from '../core/store';
 import type { Building, BuildingType, GridPos, Rotation } from '../core/types';
-import { box, drawBuilding, flat, makeGroundTextures, type ArtAnchors } from './art';
+import { propKey } from '../assets/manifest';
+import { box, drawBuilding, drawProp, flat, makeGroundTextures, type ArtAnchors } from './art';
+import { buildingChoice, effectPoint, makeSprite, queueArt, terrainChoice, type LoadedArt } from './assets';
 import { footprintDepth, isoPoint, TILE_H, TILE_W, worldToGridF, worldToTile } from './iso';
+import { fbm, hash2, mixColor } from './noise';
+import { isInsideGrid, layoutProps, SCENERY_RING } from './props';
 
 const MIN_ZOOM = 0.45;
 const MAX_ZOOM = 2.4;
 const DRAG_THRESHOLD = 10;
+
+// Terrain palette (final colours after tinting).
+const MOSS = 0x3b6a3a;
+const LUSH = 0x5c9a4c;
+const SUNLIT = 0x84b85e;
+const MEADOW = 0x8fa848;
+const FOREST_FLOOR = 0x2d4c31;
+const GRID_DEPTH = -500;
 
 interface BuildingView {
   building: Building;
@@ -27,6 +39,10 @@ export class CityScene extends Phaser.Scene {
   private views = new Map<string, BuildingView>();
   private ghost?: { key: string; container: Phaser.GameObjects.Container; base: Phaser.GameObjects.Graphics };
   private selection!: Phaser.GameObjects.Graphics;
+  private marker!: Phaser.GameObjects.Container;
+  private grid!: Phaser.GameObjects.Graphics;
+  private gridShown = false;
+  private art!: LoadedArt;
   private unsubscribe?: () => void;
   private lastSnapshot?: Snapshot;
 
@@ -46,14 +62,21 @@ export class CityScene extends Phaser.Scene {
     this.dpr = data.dpr;
   }
 
+  preload() {
+    this.art = queueArt(this);
+  }
+
   create() {
     makeGroundTextures(this, TILE_W, TILE_H);
     this.input.addPointer(1);
     this.drawIsland();
+    this.drawScenery();
+    this.drawGrid();
     this.spawnMotes();
 
     this.selection = this.add.graphics().setDepth(5_000);
-    this.tweens.add({ targets: this.selection, alpha: { from: 1, to: 0.35 }, duration: 800, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: this.selection, alpha: { from: 1, to: 0.55 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.marker = this.makeSelectionMarker();
 
     const cam = this.cameras.main;
     const size = this.store.state.mapSize;
@@ -78,34 +101,146 @@ export class CityScene extends Phaser.Scene {
   // --- world -------------------------------------------------------------------------
   private drawIsland() {
     const size = this.store.state.mapSize;
+    const ring = SCENERY_RING;
+    const lo = -ring;
+    const span = size + ring * 2;
     const cliff = this.add.graphics().setDepth(-2000);
-    // Floating island: layered earth strata beneath the grass.
-    box(cliff, { x: 0, y: 0, w: size, d: size }, -70, 70, 0x4a3426);
-    box(cliff, { x: 0, y: 0, w: size, d: size }, -22, 22, 0x5d4330);
+    // Floating island: layered earth strata beneath the grass, including the scenery ring.
+    box(cliff, { x: lo, y: lo, w: span, d: span }, -78, 78, 0x4a3426);
+    box(cliff, { x: lo, y: lo, w: span, d: span }, -24, 24, 0x5d4330);
+    box(cliff, { x: lo, y: lo, w: span, d: span }, -6, 6, 0x3d5a2e);
     // jagged roots/stalactites below
-    for (let i = 0; i < size; i += 1.5) {
-      const len = 30 + ((i * 37) % 50);
-      const a = isoPoint(i, size, -70);
-      const b = isoPoint(i + 1.5, size, -70);
+    for (let i = lo; i < size + ring; i += 1.5) {
+      const len = 30 + ((Math.abs(i) * 37) % 50);
+      const a = isoPoint(i, size + ring, -78);
+      const b = isoPoint(i + 1.5, size + ring, -78);
       cliff.fillStyle(0x3a281d, 1).fillTriangle(a.x, a.y, b.x, b.y, (a.x + b.x) / 2, a.y + len);
-      const c = isoPoint(size, i, -70);
-      const d = isoPoint(size, i + 1.5, -70);
+      const c = isoPoint(size + ring, i, -78);
+      const d = isoPoint(size + ring, i + 1.5, -78);
       cliff.fillStyle(0x2c1f17, 1).fillTriangle(c.x, c.y, d.x, d.y, (c.x + d.x) / 2, c.y + len * 0.9);
     }
 
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
+    for (let y = lo; y < size + ring; y++) {
+      for (let x = lo; x < size + ring; x++) {
         const p = isoPoint(x, y);
-        const v = (x * 7 + y * 13 + ((x * y) % 5)) % 4;
-        this.add.image(p.x, p.y, `grass-${v}`).setOrigin(0.5, 0).setDepth(-1000);
+        const variant = Math.floor(hash2(x, y, 3) * 4);
+        const artKey = terrainChoice(this.art, variant);
+        const colour = this.terrainColour(x, y, size);
+        const img = this.add.image(p.x, p.y, artKey ?? `grass-${variant}`).setDepth(-1000);
+        if (artKey) {
+          // Painted tiles keep their own colours; the noise only adds gentle variation.
+          img.setOrigin(0.5, 0).setScale(TILE_W / img.width, TILE_H / img.height);
+          img.setTint(mixColor(colour, 0xffffff, 0.72));
+        } else {
+          img.setOrigin(0.5, 0).setTint(colour);
+        }
       }
     }
-    // faint ley-line grid glow along the map edge
+    this.drawGroundDetails(size);
+
+    // faint ley-line glow along the edge of the buildable realm
     const rim = this.add.graphics().setDepth(-999);
-    rim.lineStyle(2, 0x9d8cff, 0.35);
-    const corners = [isoPoint(0, 0), isoPoint(size, 0), isoPoint(size, size), isoPoint(0, size)];
-    rim.strokePoints(corners, true);
-    this.tweens.add({ targets: rim, alpha: { from: 0.4, to: 1 }, duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    rim.lineStyle(2, 0x9d8cff, 0.3);
+    rim.strokePoints([isoPoint(0, 0), isoPoint(size, 0), isoPoint(size, size), isoPoint(0, size)], true);
+    this.tweens.add({ targets: rim, alpha: { from: 0.35, to: 0.9 }, duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+  }
+
+  /** Low-frequency noise + a soft light direction give organic ground without changing the grid. */
+  private terrainColour(x: number, y: number, size: number): number {
+    if (!isInsideGrid(x, y, size)) {
+      return mixColor(FOREST_FLOOR, MOSS, fbm(x / 3, y / 3, 9) * 0.6);
+    }
+    let c = mixColor(MOSS, LUSH, 0.25 + fbm(x / 5, y / 5, 1) * 0.9);
+    const meadow = fbm(x / 4 + 30, y / 4 + 30, 2);
+    if (meadow > 0.62) c = mixColor(c, MEADOW, (meadow - 0.62) * 1.6);
+    // light from the north (top of the screen) fading towards the front edges
+    c = mixColor(c, SUNLIT, Math.max(0, 0.3 - (x + y) / (size * 2)) * 0.9);
+    // tile-level jitter so neighbouring tiles are never identical
+    return mixColor(c, hash2(x, y, 4) > 0.5 ? SUNLIT : MOSS, hash2(x, y, 6) * 0.08);
+  }
+
+  /** Tiny flowers, pebbles and mushrooms painted on the ground layer (purely cosmetic). */
+  private drawGroundDetails(size: number) {
+    const g = this.add.graphics().setDepth(-900);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const h = hash2(x, y, 21);
+        if (h > 0.2) continue;
+        const c = isoPoint(x + 0.3 + hash2(x, y, 22) * 0.4, y + 0.3 + hash2(x, y, 23) * 0.4);
+        if (h < 0.08) {
+          const petal = h < 0.04 ? 0xf3dd7a : 0xc8a6ff;
+          for (let k = 0; k < 4; k++) {
+            const ox = (hash2(x, y, 30 + k) - 0.5) * 14;
+            const oy = (hash2(x, y, 40 + k) - 0.5) * 6;
+            g.fillStyle(petal, 0.95).fillCircle(c.x + ox, c.y + oy, 1.3);
+          }
+        } else if (h < 0.15) {
+          g.fillStyle(0x8f8a7c, 0.9).fillEllipse(c.x, c.y, 5, 3);
+          g.fillStyle(0x6f6a5f, 0.9).fillEllipse(c.x + 4, c.y + 1, 3, 2);
+        } else {
+          g.fillStyle(0xe8dcc8, 1).fillRect(c.x - 0.6, c.y - 3, 1.2, 3);
+          g.fillStyle(0xb5483a, 1).fillEllipse(c.x, c.y - 3.5, 5, 2.6);
+        }
+      }
+    }
+  }
+
+  /** Forest, rocks and ruins on the ring outside the playable grid. */
+  private drawScenery() {
+    const size = this.store.state.mapSize;
+    for (const p of layoutProps(size)) {
+      const centre = isoPoint(p.x + 0.5, p.y + 0.5);
+      const jitter = { x: (hash2(p.x, p.y, 51) - 0.5) * 10, y: (hash2(p.x, p.y, 52) - 0.5) * 4 };
+      const depth = footprintDepth(p.x, p.y, 1, 1);
+      const key = propKey(p.type);
+      if (this.art.has(key)) {
+        const img = makeSprite(this, this.art, { key, flipX: hash2(p.x, p.y, 53) > 0.5 });
+        img.setPosition(centre.x + jitter.x, centre.y + jitter.y).setDepth(depth);
+      } else {
+        const g = this.add.graphics({ x: centre.x + jitter.x, y: centre.y + jitter.y }).setDepth(depth);
+        const s = 0.9 + hash2(p.x, p.y, 54) * 0.25;
+        g.setScale(hash2(p.x, p.y, 53) > 0.5 ? -s : s, s);
+        drawProp(g, p.type, p.variant);
+        if (p.type === 'crystalCluster' || p.type === 'treeEnchanted') {
+          const glow = this.add.image(centre.x + jitter.x, centre.y + jitter.y - 18, 'mote');
+          glow.setTint(0x9d7bff).setScale(2).setBlendMode(Phaser.BlendModes.ADD).setDepth(depth + 0.01);
+          this.tweens.add({ targets: glow, alpha: { from: 0.25, to: 0.7 }, duration: 1800 + hash2(p.x, p.y, 55) * 1400, yoyo: true, repeat: -1 });
+        }
+      }
+    }
+  }
+
+  /** Construction grid, faded in only while placing or moving a building. */
+  private drawGrid() {
+    const size = this.store.state.mapSize;
+    const g = this.add.graphics().setDepth(GRID_DEPTH).setAlpha(0);
+    g.lineStyle(1, 0xe9e2ff, 0.28);
+    for (let i = 0; i <= size; i++) {
+      g.lineBetween(isoPoint(i, 0).x, isoPoint(i, 0).y, isoPoint(i, size).x, isoPoint(i, size).y);
+      g.lineBetween(isoPoint(0, i).x, isoPoint(0, i).y, isoPoint(size, i).x, isoPoint(size, i).y);
+    }
+    this.grid = g;
+  }
+
+  private occupied?: Phaser.GameObjects.Graphics;
+
+  private setGridVisible(show: boolean, ignoreId?: string) {
+    this.occupied?.destroy();
+    this.occupied = undefined;
+    if (show) {
+      // Tint occupied tiles so free space reads at a glance.
+      const g = this.add.graphics().setDepth(GRID_DEPTH + 1);
+      for (const b of this.store.state.buildings) {
+        if (b.id === ignoreId) continue;
+        const { w, d } = footprintSize(b.type, b.rotation);
+        flat(g, { x: b.x, y: b.y, w, d }, 0, 0x1a1030, 0.28);
+      }
+      this.occupied = g;
+    }
+    if (show === this.gridShown) return;
+    this.gridShown = show;
+    this.tweens.killTweensOf(this.grid);
+    this.tweens.add({ targets: this.grid, alpha: show ? 1 : 0, duration: 220 });
   }
 
   private spawnMotes() {
@@ -137,6 +272,9 @@ export class CityScene extends Phaser.Scene {
     if (!prev || prev.state.buildings !== snap.state.buildings) this.syncBuildings(snap.state.buildings, prev);
     this.syncGhost(snap);
     this.syncSelection(snap);
+    const m = snap.mode;
+    const building = m.kind === 'placing' || m.kind === 'moving';
+    if (building || this.gridShown) this.setGridVisible(building, m.kind === 'moving' ? m.id : undefined);
   }
 
   private syncBuildings(buildings: Building[], prev?: Snapshot) {
@@ -161,9 +299,7 @@ export class CityScene extends Phaser.Scene {
     const p = isoPoint(b.x, b.y);
     const { w, d } = footprintSize(b.type, b.rotation);
     const container = this.add.container(p.x, p.y).setDepth(footprintDepth(b.x, b.y, w, d));
-    const g = this.add.graphics();
-    container.add(g);
-    const anchors = drawBuilding(g, b.type, b.rotation);
+    const anchors = this.addBuildingVisual(container, b.type, b.rotation, 1);
     const cleanups = this.animate(b.type, container, anchors);
     if (animateIn) {
       container.setScale(0.6, 0.2).setAlpha(0);
@@ -179,6 +315,37 @@ export class CityScene extends Phaser.Scene {
         this.tweens.killTweensOf(container);
         container.destroy(true);
       },
+    };
+  }
+
+  /**
+   * Adds artwork for a building to a container positioned at the footprint's top corner.
+   * Uses the AI/painted sprite when one loaded, otherwise the procedural drawing.
+   */
+  private addBuildingVisual(container: Phaser.GameObjects.Container, type: BuildingType, rotation: Rotation, alpha: number): ArtAnchors {
+    const choice = buildingChoice(this.art, type, rotation);
+    if (!choice) {
+      const g = this.add.graphics();
+      container.add(g);
+      return drawBuilding(g, type, rotation, alpha);
+    }
+    const { w, d } = footprintSize(type, rotation);
+    const centre = isoPoint(w / 2, d / 2);
+    const img = makeSprite(this, this.art, choice).setPosition(centre.x, centre.y).setAlpha(alpha);
+    const shadow = this.add.graphics();
+    flat(shadow, { x: 0, y: 0, w, d }, 0, 0x000000, 0.16 * alpha);
+    container.add([shadow, img]);
+    const entry = this.art.entry(choice.key)!;
+    const at = (pt: { x: number; y: number }) => {
+      const e = effectPoint(entry, pt, choice.flipX);
+      return { x: centre.x + e.x, y: centre.y + e.y };
+    };
+    const fx = entry.effects ?? {};
+    return {
+      chimney: fx.chimney && at(fx.chimney),
+      orb: fx.orb && at(fx.orb),
+      windows: fx.windows?.map(at),
+      top: { x: centre.x, y: img.getTopCenter().y + 6 },
     };
   }
 
@@ -303,9 +470,9 @@ export class CityScene extends Phaser.Scene {
       this.ghost?.container.destroy(true);
       const container = this.add.container(0, 0);
       const base = this.add.graphics();
-      const art = this.add.graphics();
-      drawBuilding(art, mode.type, mode.rotation, 0.75);
+      const art = this.add.container(0, 0);
       container.add([base, art]);
+      this.addBuildingVisual(art, mode.type, mode.rotation, 0.75);
       this.tweens.add({ targets: art, y: -4, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       this.ghost = { key, container, base };
     }
@@ -319,16 +486,34 @@ export class CityScene extends Phaser.Scene {
     base.strokePoints([isoPoint(0, 0), isoPoint(w, 0), isoPoint(w, d), isoPoint(0, d)], true);
   }
 
+  private makeSelectionMarker(): Phaser.GameObjects.Container {
+    const g = this.add.graphics();
+    g.fillStyle(0x1a1030, 0.9).fillTriangle(-9, -14, 9, -14, 0, 0);
+    g.fillStyle(0xffd56b, 1).fillTriangle(-6, -12, 6, -12, 0, -2);
+    const glow = this.add.image(0, -8, 'mote').setTint(0xffd56b).setScale(1.6).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.6);
+    const marker = this.add.container(0, 0, [glow, g]).setDepth(9_200).setVisible(false);
+    this.tweens.add({ targets: g, y: -6, duration: 650, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    return marker;
+  }
+
   private syncSelection(snap: Snapshot) {
     this.selection.clear();
+    this.marker.setVisible(false);
     if (snap.mode.kind !== 'selected') return;
     const id = snap.mode.id;
     const b = snap.state.buildings.find((x) => x.id === id);
     if (!b) return;
     const { w, d } = footprintSize(b.type, b.rotation);
-    this.selection.lineStyle(3, 0xffd56b, 1);
-    this.selection.strokePoints([isoPoint(b.x, b.y), isoPoint(b.x + w, b.y), isoPoint(b.x + w, b.y + d), isoPoint(b.x, b.y + d)], true);
+    const corners = [isoPoint(b.x, b.y), isoPoint(b.x + w, b.y), isoPoint(b.x + w, b.y + d), isoPoint(b.x, b.y + d)];
+    flat(this.selection, { x: b.x, y: b.y, w, d }, 0, 0xffd56b, 0.18);
+    this.selection.lineStyle(6, 0xffd56b, 0.25).strokePoints(corners, true);
+    this.selection.lineStyle(2, 0xfff0c2, 1).strokePoints(corners, true);
+    // Drawn just under the building so the glow frames it without covering it.
     this.selection.setDepth(footprintDepth(b.x, b.y, w, d) - 0.01);
+    const view = this.views.get(id);
+    if (view) {
+      this.marker.setPosition(view.container.x + view.anchors.top.x, view.container.y + view.anchors.top.y - 10).setVisible(true);
+    }
   }
 
   // --- camera & input ----------------------------------------------------------------

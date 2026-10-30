@@ -22,6 +22,8 @@ export interface Snapshot {
   mode: Mode;
   /** Whether the current ghost (placing/moving) can be committed where it is. */
   ghostValid: boolean;
+  /** Why the ghost can't be committed (null when valid or not placing/moving). UI only; never saved. */
+  ghostIssue: Exclude<FailureReason, 'not-found'> | null;
   toast: { id: number; text: string; tone: 'info' | 'error' } | null;
 }
 
@@ -57,7 +59,7 @@ export class GameStore {
     this.now = opts.now ?? Date.now;
     const state = initial ?? createInitialState(this.now());
     this.viewCenter = { x: state.mapSize / 2, y: state.mapSize / 2 };
-    this.snapshot = { state, mode: { kind: 'idle' }, ghostValid: false, toast: null };
+    this.snapshot = { state, mode: { kind: 'idle' }, ghostValid: false, ghostIssue: null, toast: null };
   }
 
   /** Restores the last autosave, or starts a fresh realm. */
@@ -84,24 +86,21 @@ export class GameStore {
 
   private set(patch: Partial<Snapshot>, persist = false) {
     const next = { ...this.snapshot, ...patch };
-    next.ghostValid = this.computeGhostValid(next);
+    next.ghostIssue = this.computeGhostIssue(next);
+    next.ghostValid = (next.mode.kind === 'placing' || next.mode.kind === 'moving') && next.ghostIssue === null;
     this.snapshot = next;
     if (patch.state) this.events.emit('state:changed', { state: next.state });
     if (persist) this.scheduleSave();
     this.listeners.forEach((l) => l());
   }
 
-  private computeGhostValid({ mode, state }: Snapshot): boolean {
-    if (mode.kind === 'placing') {
-      return (
-        canAfford(state.resources, BUILDINGS[mode.type].cost) &&
-        checkPlacement(mode.type, mode.pos, mode.rotation, state.buildings, state.mapSize).valid
-      );
-    }
-    if (mode.kind === 'moving') {
-      return checkPlacement(mode.type, mode.pos, mode.rotation, state.buildings, state.mapSize, mode.id).valid;
-    }
-    return false;
+  private computeGhostIssue({ mode, state }: Snapshot): Snapshot['ghostIssue'] {
+    if (mode.kind !== 'placing' && mode.kind !== 'moving') return null;
+    const ignore = mode.kind === 'moving' ? mode.id : undefined;
+    const check = checkPlacement(mode.type, mode.pos, mode.rotation, state.buildings, state.mapSize, ignore);
+    if (!check.valid) return check.reason;
+    if (mode.kind === 'placing' && !canAfford(state.resources, BUILDINGS[mode.type].cost)) return 'insufficient-resources';
+    return null;
   }
 
   toast(text: string, tone: 'info' | 'error' = 'info') {

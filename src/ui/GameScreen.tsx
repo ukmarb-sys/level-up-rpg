@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { BUILDINGS } from '../core/buildings';
 import type { GameStore } from '../core/store';
 import type { GameHandle } from '../game/createGame';
 import { ActionBar } from './ActionBar';
@@ -68,14 +67,9 @@ export function GameScreen({ store, onExit }: Props) {
         ) : (
           <ActionBar
             mode={mode}
+            type={mode.kind === 'selected' ? (selected?.type ?? 'cottage') : mode.type}
             ghostValid={snap.ghostValid}
-            title={
-              mode.kind === 'selected'
-                ? selected
-                  ? BUILDINGS[selected.type].name
-                  : ''
-                : `${mode.kind === 'placing' ? 'Place' : 'Move'} ${BUILDINGS[mode.type].name}`
-            }
+            ghostIssue={snap.ghostIssue}
             onRotate={() => store.rotate()}
             onConfirm={() => store.confirm()}
             onCancel={() => store.cancel()}
