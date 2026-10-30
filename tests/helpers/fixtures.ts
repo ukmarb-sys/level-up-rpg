@@ -96,3 +96,42 @@ export function fakeAiRender(o: FakeRenderOptions): { width: number; height: num
   }
   return { width: W, height: H, data };
 }
+
+/**
+ * Stand-in for an illustration whose decoration overhangs its logical tile: a 1x1 house in the
+ * middle of a garden diamond that is `garden` tiles across (e.g. 2 => half a tile on every side).
+ * With `split`, the garden comes back as a separate ground layer of the same size.
+ * Synthetic geometry for tests only — not artwork.
+ */
+export function fakeCottageWithGarden(opts: { garden?: number; tile?: number; split?: boolean; background?: 'white' | 'transparent' } = {}) {
+  const garden = opts.garden ?? 2;
+  const T = opts.tile ?? 260;
+  const W = 1200;
+  const H = 1400;
+  const house = fakeAiRender({ footprint: { w: 1, d: 1 }, tile: T, canvas: { width: W, height: H }, wallHeight: T * 0.5 });
+  // house ground front corner is at y = H*0.8; garden front corner extends further by (garden-1)/2 tiles
+  const cx = W / 2;
+  const houseCy = H * 0.8 - T / 2; // centre of the 1x1 diamond (T wide, T/2 tall)
+  const gw = (garden * T) / 2;
+  const gh = (garden * T) / 4;
+  const inGarden = (x: number, y: number) => Math.abs(x - cx) / gw + Math.abs(y - houseCy) / gh <= 1;
+  const main = { width: W, height: H, data: new Uint8Array(W * H * 4) };
+  const ground = { width: W, height: H, data: new Uint8Array(W * H * 4) };
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      const houseA = house.data[i + 3];
+      // flower beds + path speckle so the garden is clearly painted
+      const gardenPx: [number, number, number, number] | null = inGarden(x, y)
+        ? (x * 3 + y * 5) % 37 === 0
+          ? [240, 200, 90, 255]
+          : [70, 130, 60, 255]
+        : null;
+      if (houseA) main.data.set(house.data.subarray(i, i + 4), i);
+      else if (gardenPx && !opts.split) main.data.set(gardenPx, i);
+      if (gardenPx && opts.split) ground.data.set(gardenPx, i);
+      if (!main.data[i + 3] && opts.background === 'white') main.data.set([250, 250, 250, 255], i);
+    }
+  }
+  return opts.split ? { main, ground } : { main };
+}

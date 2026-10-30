@@ -8,10 +8,12 @@
 import { BUILDING_ORDER, BUILDINGS } from '../core/buildings';
 import type { BuildingType, Rotation } from '../core/types';
 import { isoPoint } from '../game/iso';
-import { proceduralAnchors, type Pt } from './geometry';
+import { logicalBounds, proceduralAnchors, rotateBounds, type LocalBounds, type Pt } from './geometry';
 import { objectGeometry, SOURCE_SCALE, tileGeometry, type SpriteGeometry } from './spec';
+export type { LocalBounds } from './geometry';
 
-export type AssetKind = 'building' | 'terrain' | 'prop';
+/** 'ground' = optional low layer of a building (garden, path, shadow) drawn beneath all buildings. */
+export type AssetKind = 'building' | 'ground' | 'terrain' | 'prop';
 
 /**
  * Effect attachment points in source px (same space as `anchor`). All optional; `null` in
@@ -48,6 +50,10 @@ export interface AssetEntry {
   top?: Pt;
   /** Reference effect points; overridden per file by art-meta.json. */
   effects?: EffectPoints;
+  /** Building sprites and their ground layers: which building/rotation the image depicts. */
+  building?: { type: BuildingType; rotation: Rotation };
+  /** Ground layers: key of the building sprite they belong to (same canvas and anchor). */
+  layerOf?: string;
 }
 
 export const ART_EXTENSIONS = ['webp', 'png'] as const;
@@ -68,6 +74,28 @@ const BUILDING_BRIEF: Record<BuildingType, string> = {
 };
 
 export const buildingKey = (type: BuildingType, rotation: Rotation) => `bld-${type}-r${rotation}`;
+export const groundKey = (spriteKey: string) => `${spriteKey}-ground`;
+/** Suffix of ground-layer files: buildings/cottage/cottage_r0_ground.png */
+export const GROUND_SUFFIX = '_ground';
+
+/**
+ * Default canvas height when the art overhangs: the base height scaled by how much wider the
+ * visual footprint is than the logical one, rounded up to 32 px.
+ */
+export function visualCanvasHeight(type: BuildingType, visual: { w: number; d: number }, w: number, d: number): number {
+  return Math.ceil((BUILDING_CANVAS_HEIGHT[type] * ((visual.w + visual.d) / (w + d))) / 32) * 32;
+}
+
+/**
+ * Sprite geometry for a building image. `bounds` (local r0 frame) declares how far the art
+ * overhangs the logical footprint; `height` overrides the canvas height.
+ */
+export function buildingGeometry(type: BuildingType, rotation: Rotation, bounds?: LocalBounds, height?: number): SpriteGeometry {
+  const { w, d } = buildingFootprint(type, rotation);
+  const visual = rotateBounds(type, rotation, bounds ?? logicalBounds(type));
+  const h = height ?? (bounds ? visualCanvasHeight(type, visual, w, d) : BUILDING_CANVAS_HEIGHT[type]);
+  return objectGeometry(w, d, h, visual);
+}
 
 /** Converts a container-local world point (origin = footprint top corner) to sprite source px. */
 export function worldToSource(g: SpriteGeometry, p: Pt): Pt {
@@ -104,16 +132,29 @@ function buildingEntries(): AssetEntry[] {
   for (const type of BUILDING_ORDER) {
     for (const rotation of [0, 1, 2, 3] as Rotation[]) {
       const { w, d } = buildingFootprint(type, rotation);
-      const geometry = objectGeometry(w, d, BUILDING_CANVAS_HEIGHT[type]);
+      const geometry = buildingGeometry(type, rotation);
+      const key = buildingKey(type, rotation);
+      const file = `buildings/${type}/${type}_r${rotation}`;
       out.push({
-        key: buildingKey(type, rotation),
+        key,
         kind: 'building',
-        file: `buildings/${type}/${type}_r${rotation}`,
+        file,
         geometry,
         ...referencePoints(type, rotation, geometry),
+        building: { type, rotation },
         // r0 is enough for every rotation (see resolve.ts); r1-r3 add true side/back views.
         required: rotation === 0,
         description: `${BUILDING_BRIEF[type]} — rotation ${rotation} (${w}x${d} tiles)`,
+      });
+      out.push({
+        key: groundKey(key),
+        kind: 'ground',
+        file: `${file}${GROUND_SUFFIX}`,
+        geometry,
+        building: { type, rotation },
+        layerOf: key,
+        required: false,
+        description: `Optional ground layer for ${file} (garden, path, shadow); same canvas and anchor`,
       });
     }
   }

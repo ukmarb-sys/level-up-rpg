@@ -121,10 +121,21 @@ describe('importing generator output as building sprites', () => {
     expect(errorsAfterImport('buildings/mageTower/mageTower_r0', res.raster, res.meta)).toEqual([]);
   });
 
-  it('shrinks art that is too tall for the canvas and says so', () => {
+  it('grows the canvas for tall building art and records the height', () => {
     const raw = fakeAiRender({ footprint: { w: 1, d: 1 }, tile: 300, wallHeight: 1200, canvas: { width: 800, height: 1700 } });
     const res = importObject(raw, entry('bld-cottage-r0'));
+    expect(res.meta?.height).toBeGreaterThan(448);
+    expect(res.meta!.height! % 32).toBe(0);
+    expect(res.raster.height).toBe(res.meta!.height);
+    expect(res.notes.some((n) => /Canvas height grown 448/.test(n))).toBe(true);
+    expect(errorsAfterImport('buildings/cottage/cottage_r0', res.raster, res.meta)).toEqual([]);
+  });
+
+  it('shrinks tall art instead when auto height is off, and says so', () => {
+    const raw = fakeAiRender({ footprint: { w: 1, d: 1 }, tile: 300, wallHeight: 1200, canvas: { width: 800, height: 1700 } });
+    const res = importObject(raw, entry('bld-cottage-r0'), { autoHeight: false });
     expect(res.warnings.some((w) => /too tall/.test(w))).toBe(true);
+    expect(res.meta?.height).toBeUndefined();
     expect(opaqueBounds(res.raster)!.minY).toBeGreaterThanOrEqual(2);
     // It no longer spans the footprint, which the validator must point out.
     const errs = errorsAfterImport('buildings/cottage/cottage_r0', res.raster, res.meta);

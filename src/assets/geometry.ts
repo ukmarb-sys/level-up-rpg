@@ -126,3 +126,29 @@ export function proceduralAnchors(type: BuildingType, rotation: Rotation): ArtAn
       return { orb: P(1, 1, 128), windows: [P(0.6 + 0.5, 1.5, 28), P(1.5, 1.1, 28)], top: P(1, 1, 112) };
   }
 }
+
+/**
+ * Visual footprint of a building's artwork in the building's own local tile frame (the r0
+ * frame: u along width, v along depth). The logical footprint is [0, W] x [0, D]; a 1x1
+ * cottage whose garden overhangs half a tile on every side is { u0: -0.5, v0: -0.5, u1: 1.5, v1: 1.5 }.
+ */
+export interface LocalBounds {
+  u0: number;
+  v0: number;
+  u1: number;
+  v1: number;
+}
+
+/** The visual footprint in grid space for a rotation, relative to the logical top corner. */
+export function rotateBounds(type: BuildingType, rotation: Rotation, b: LocalBounds) {
+  const def = BUILDINGS[type];
+  const r = new Frame(def.width, def.depth, rotation).rect(b.u0, b.v0, b.u1 - b.u0, b.v1 - b.v0);
+  // normalise -0 so equality checks and JSON stay clean
+  return { x: r.x + 0, y: r.y + 0, w: r.w, d: r.d };
+}
+
+/** Logical footprint as LocalBounds (no overhang). */
+export function logicalBounds(type: BuildingType): LocalBounds {
+  const def = BUILDINGS[type];
+  return { u0: 0, v0: 0, u1: def.width, v1: def.depth };
+}
