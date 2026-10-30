@@ -8,9 +8,10 @@
  * Pure functions over RGBA rasters; the CLI (scripts/import-art.ts) handles files.
  */
 import type { Pt } from '../../src/assets/geometry';
+import type { LocalBounds } from '../../src/assets/geometry';
 import type { AssetEntry, EffectPoints } from '../../src/assets/manifest';
-import type { ArtMetaEntry } from '../../src/assets/meta';
-import { diamondCorners, PAD } from '../../src/assets/spec';
+import { applyMeta, type ArtMetaEntry } from '../../src/assets/meta';
+import { diamondCorners, logicalCorners, overhangs, PAD } from '../../src/assets/spec';
 import {
   applyDiamondMask,
   blit,
@@ -40,6 +41,14 @@ export interface ObjectImportOptions {
   mirror?: 'auto' | boolean;
   /** Background removal: 'auto' keys out a flat/checkerboard background when the image has no real transparency. */
   key?: 'auto' | 'on' | 'off';
+  /** Visual footprint the art paints, in the building's local tile frame (buildings only). */
+  visual?: LocalBounds;
+  /** Canvas height override (multiple of 32). */
+  height?: number;
+  /** Grow the canvas height for tall building art instead of shrinking it (default true). */
+  autoHeight?: boolean;
+  /** Optional ground layer (garden, path, shadow), same pixel size as the building image. */
+  ground?: Raster;
   /** Skip removal of small detached specks (default false). */
   keepIslands?: boolean;
   /** Manual effect points in output px; null disables the effect. */
@@ -48,6 +57,8 @@ export interface ObjectImportOptions {
 
 export interface ImportResult {
   raster: Raster;
+  /** Aligned ground layer, when one was supplied. */
+  ground?: Raster;
   meta?: ArtMetaEntry;
   notes: string[];
   warnings: string[];
@@ -97,30 +108,66 @@ function lowestPointX(r: Raster, b: { minX: number; maxX: number; maxY: number }
   return sum / Math.max(1, n);
 }
 
-export function importObject(source: Raster, entry: AssetEntry, opts: ObjectImportOptions = {}): ImportResult {
+/** Union of two same-sized rasters' alpha (max), for alignment decisions. */
+function unionAlpha(a: Raster, b?: Raster): Raster {
+  if (!b) return a;
+  const out: Raster = { width: a.width, height: a.height, data: new Uint8Array(a.data) };
+  for (let i = 3; i < out.data.length; i += 4) out.data[i] = Math.max(a.data[i], b.data[i]);
+  return out;
+}
+
+/** Largest canvas height the importer will grow to (source px). */
+export const MAX_CANVAS_HEIGHT = 4096;
+
+export function importObject(source: Raster, baseEntry: AssetEntry, opts: ObjectImportOptions = {}): ImportResult {
   const notes: string[] = [];
   const warnings: string[] = [];
-  const g = entry.geometry;
-  const { width: W, height: H } = g.canvas;
   const fill = opts.fill ?? 0.96;
   const offsetY = opts.offsetY ?? 0;
+  if ((opts.visual || opts.height) && !baseEntry.building) throw new Error('--visual and --height only apply to building sprites');
+  const metaFor = (height?: number): ArtMetaEntry => ({
+    ...(opts.visual ? { visual: opts.visual } : {}),
+    ...(height !== undefined ? { height } : {}),
+  });
+  let height = opts.height;
+  let entry = applyMeta(baseEntry, { [baseEntry.file]: metaFor(height) });
+  if (opts.visual) {
+    const v = entry.geometry.visual;
+    notes.push(
+      `Visual footprint ${v.w}x${v.d} tiles around the logical ${entry.geometry.footprint.w}x${entry.geometry.footprint.d} — canvas ${entry.geometry.canvas.width}x${entry.geometry.canvas.height}, anchor (${entry.geometry.anchor.x}, ${entry.geometry.anchor.y})`,
+    );
+  }
 
-  const work: Raster = { width: source.width, height: source.height, data: new Uint8Array(source.data) };
-  prepareAlpha(work, opts.key ?? 'auto', notes);
-  const specks = opts.keepIslands ? 0 : despeckle(work);
-  if (specks) notes.push(`Removed ${specks} px of stray specks`);
-  const b0 = opaqueBounds(work);
+  const prep = (r: Raster, label: string) => {
+    const work: Raster = { width: r.width, height: r.height, data: new Uint8Array(r.data) };
+    prepareAlpha(work, opts.key ?? 'auto', notes);
+    const specks = opts.keepIslands ? 0 : despeckle(work);
+    if (specks) notes.push(`Removed ${specks} px of stray specks${label}`);
+    return work;
+  };
+  const main = prep(source, '');
+  let ground: Raster | undefined;
+  if (opts.ground) {
+    if (opts.ground.width !== source.width || opts.ground.height !== source.height) {
+      throw new Error(`The ground layer must have the same size as the building image (${source.width}x${source.height})`);
+    }
+    ground = prep(opts.ground, ' (ground layer)');
+  }
+  // Align on everything painted (building + ground) so both layers stay registered.
+  const b0 = opaqueBounds(unionAlpha(main, ground));
   if (!b0) throw new Error('The image is empty after background removal');
-  let art = crop(work, b0);
+  let art = crop(main, b0);
+  let gArt = ground && crop(ground, b0);
   const bw = art.width;
   const bh = art.height;
 
-  // Orientation: for non-square footprints the front (lowest) corner is off-centre.
+  // Orientation: for non-square (visual) footprints the front (lowest) corner is off-centre.
   let mirrored = false;
-  const { w, d } = g.footprint;
+  const { w, d } = entry.geometry.visual;
   if (opts.mirror === true) mirrored = true;
   else if (opts.mirror !== false && w !== d) {
-    const lf = lowestPointX(art, { minX: 0, maxX: bw - 1, maxY: bh - 1 }) / Math.max(1, bw - 1);
+    const both = unionAlpha(art, gArt);
+    const lf = lowestPointX(both, { minX: 0, maxX: bw - 1, maxY: bh - 1 }) / Math.max(1, bw - 1);
     const expected = w / (w + d);
     if (Math.abs(lf - (1 - expected)) + 0.08 < Math.abs(lf - expected)) {
       mirrored = true;
@@ -130,30 +177,51 @@ export function importObject(source: Raster, entry: AssetEntry, opts: ObjectImpo
       );
     }
   }
-  if (mirrored) art = flipX(art);
+  if (mirrored) {
+    art = flipX(art);
+    gArt = gArt && flipX(gArt);
+  }
 
-  // Scale so the artwork spans the footprint diamond; shrink further if it would be too tall.
-  const groundY = H - PAD + offsetY;
-  let s = (g.diamond.width * fill) / bw;
-  const availH = groundY + 1 - TOP_MARGIN;
-  if (bh * s > availH) {
-    const fitted = availH / bh;
-    warnings.push(
-      `Art is too tall for the ${W}x${H} canvas at full width: scaled to ${Math.round((fitted / s) * 100)}% ` +
-        `(covers ${Math.round(fill * (fitted / s) * 100)}% of the footprint width). Consider a slimmer composition.`,
-    );
-    s = fitted;
+  // Scale so the artwork spans the (visual) footprint diamond.
+  let s = (entry.geometry.diamond.width * fill) / bw;
+  const needH = Math.ceil(bh * s) + PAD + TOP_MARGIN + Math.max(0, -offsetY);
+  if (needH > entry.geometry.canvas.height) {
+    const grown = Math.ceil(needH / 32) * 32;
+    if (entry.building && opts.autoHeight !== false && grown <= MAX_CANVAS_HEIGHT) {
+      notes.push(`Canvas height grown ${entry.geometry.canvas.height} → ${grown} px to fit the art (recorded in art-meta.json)`);
+      height = grown;
+      entry = applyMeta(baseEntry, { [baseEntry.file]: metaFor(height) });
+    } else {
+      const availH = entry.geometry.canvas.height - PAD + offsetY + 1 - TOP_MARGIN;
+      const fitted = availH / bh;
+      warnings.push(
+        `Art is too tall for the ${entry.geometry.canvas.width}x${entry.geometry.canvas.height} canvas at full width: scaled to ${Math.round((fitted / s) * 100)}% ` +
+          `(covers ${Math.round(fill * (fitted / s) * 100)}% of the footprint width). Consider a slimmer composition.`,
+      );
+      s = fitted;
+    }
   }
   if (s > 1.05) warnings.push(`Source art is small: upscaled ${s.toFixed(2)}x. Regenerate at higher resolution for sharper results.`);
+  const g = entry.geometry;
+  const { width: W, height: H } = g.canvas;
+  const groundY = H - PAD + offsetY;
   const rw = Math.max(1, Math.round(bw * s));
   const rh = Math.max(1, Math.round(bh * s));
-  const scaled = resize(art, rw, rh);
   notes.push(`Cropped ${bw}x${bh} → scaled ${s.toFixed(3)}x to ${rw}x${rh}${mirrored ? ' (mirrored)' : ''}`);
 
-  const out = createRaster(W, H);
-  const ox = Math.round(g.anchor.x - rw / 2);
+  // Horizontally: centre the art on the visual diamond (which may be offset from the anchor).
+  const c = diamondCorners(g);
+  const cx = (c.left.x + c.right.x) / 2;
+  const ox = Math.round(cx - rw / 2);
   const oy = groundY - rh + 1;
-  blit(out, scaled, ox, oy);
+  const out = createRaster(W, H);
+  blit(out, resize(art, rw, rh), ox, oy);
+  let groundOut: Raster | undefined;
+  if (gArt) {
+    groundOut = createRaster(W, H);
+    blit(groundOut, resize(gArt, rw, rh), ox, oy);
+    notes.push('Ground layer aligned with the same crop, scale and offset');
+  }
 
   const measured = measureObject(out, entry);
   const effects: EffectPoints = {};
@@ -180,11 +248,12 @@ export function importObject(source: Raster, entry: AssetEntry, opts: ObjectImpo
     if (i >= 0) manual.splice(i, 1);
   }
   const meta: ArtMetaEntry = {
+    ...metaFor(height),
     top: measured.top,
     effects,
     import: { fill, offsetY, mirrored, scale: Number(s.toFixed(4)) },
   };
-  return { raster: out, meta, notes, warnings, manual };
+  return { raster: out, ground: groundOut, meta, notes, warnings, manual };
 }
 
 /** Measures the highest painted point and detects lit windows / a magic orb. */
@@ -304,18 +373,31 @@ export function importTerrain(source: Raster, entry: AssetEntry, opts: TerrainIm
   return { raster: out, notes, warnings, manual: [] };
 }
 
-/** Checkerboard preview with the footprint diamond, anchor, top and effect points marked. */
-export function renderPreview(r: Raster, entry: AssetEntry, meta?: ArtMetaEntry): Raster {
-  const out = overCheckerboard(r);
+/**
+ * Checkerboard preview: green = visual footprint (what the art spans), orange = logical
+ * footprint (the tiles it occupies / collides on), cyan = anchor, yellow = top, magenta = effects.
+ * A ground layer, if any, is composited underneath.
+ */
+export function renderPreview(r: Raster, baseEntry: AssetEntry, meta?: ArtMetaEntry, ground?: Raster): Raster {
+  const entry = meta ? applyMeta(baseEntry, { [baseEntry.layerOf ? '' : baseEntry.file]: meta }) : baseEntry;
+  const layered = createRaster(r.width, r.height);
+  if (ground) blit(layered, ground, 0, 0);
+  blit(layered, r, 0, 0);
+  const out = overCheckerboard(layered);
   const g = entry.geometry;
+  const outline = (pts: { x: number; y: number }[], rgba: [number, number, number, number]) => {
+    for (let i = 0; i < 4; i++) line(out, pts[i], pts[(i + 1) % 4], rgba);
+  };
   const c = diamondCorners(g);
-  const green: [number, number, number, number] = [80, 255, 140, 255];
-  const pts = [c.top, c.right, c.bottom, c.left];
-  for (let i = 0; i < 4; i++) line(out, pts[i], pts[(i + 1) % 4], green);
+  outline([c.top, c.right, c.bottom, c.left], [80, 255, 140, 255]);
+  if (overhangs(g)) {
+    const l = logicalCorners(g);
+    outline([l.top, l.right, l.bottom, l.left], [255, 150, 40, 255]);
+  }
   cross(out, g.anchor, 6, [0, 220, 255, 255]);
   const top = meta?.top ?? entry.top;
   if (top) cross(out, top, 8, [255, 220, 60, 255]);
-  const fx = { ...(entry.effects ?? {}), ...(meta?.effects ?? {}) };
+  const fx = entry.effects ?? {};
   for (const p of [fx.chimney, fx.orb, fx.wheel, ...(fx.windows ?? [])]) if (p) cross(out, p, 5, [255, 60, 220, 255]);
   return out;
 }

@@ -73,6 +73,10 @@ front corner  = 32 px above the bottom edge
 - Keep at least 2 px of transparency on every side.
 - Empty space above a building is fine. Never stretch art to fill the height.
 
+If the artwork paints more ground than the building occupies (a garden, a path, lanterns), the
+canvas is sized from the **visual footprint** instead. The anchor stays at the centre of the
+**logical** footprint. See §11.
+
 ### Terrain tiles
 
 - Exactly **256 × 128 px**. The diamond touches all four edges, pixels outside it are fully
@@ -101,6 +105,7 @@ src/assets/art/
   art-meta.json
   buildings/
     cottage/    cottage_r0.png  cottage_r1.png  cottage_r2.png  cottage_r3.png
+                cottage_r0_ground.png   (optional ground layer, see §11)
     farm/       farm_r0.png     farm_r1.png     farm_r2.png     farm_r3.png
     sawmill/    sawmill_r0.png  sawmill_r1.png  sawmill_r2.png  sawmill_r3.png
     mageTower/  mageTower_r0.png mageTower_r1.png mageTower_r2.png mageTower_r3.png
@@ -176,6 +181,13 @@ footprint diamond meets the ground.
 | `mageTower_r1` | (288, 416) | — | (288, 352) | — | (237, 790) (339, 790) |
 | `mageTower_r2` | (288, 416) | — | (288, 352) | — | (237, 790) (339, 790) |
 | `mageTower_r3` | (288, 416) | — | (288, 352) | — | (237, 790) (339, 790) |
+
+### Cottage artwork with an overhanging garden (logical footprint stays 1×1)
+
+| Cottage `--visual` | art-meta `visual` | Canvas (px) | Anchor (logical centre) | Logical tile corners L / R / front | Visual corners L / R / front |
+| --- | --- | --- | --- | --- | --- |
+| `2x2` | `{ u0: -0.5, v0: -0.5, u1: 1.5, v1: 1.5 }` | 576 × 896 | (288, 736) | (160, 736) (416, 736) (288, 800) | (32, 736) (544, 736) (288, 864) |
+| `3x3` | `{ u0: -1, v0: -1, u1: 2, v1: 2 }` | 832 × 1344 | (416, 1120) | (288, 1120) (544, 1120) (416, 1184) | (32, 1120) (800, 1120) (416, 1312) |
 <!-- asset-tables:end -->
 
 The reference points in the last table come from the built-in procedural buildings. Art painted
@@ -244,9 +256,10 @@ What the importer does automatically:
 4. **Crops** to the painted pixels.
 5. **Checks orientation:** for non-square footprints, art drawn for the other orientation is
    mirrored, with a warning.
-6. **Scales** the art to span `fill` (default 96%) of the footprint diamond's width, using
-   high-quality premultiplied-alpha resampling. Art that's too tall is scaled down and
-   reported.
+6. **Scales** the art to span `fill` (default 96%) of the footprint diamond's width (the
+   *visual* footprint if `--visual` is given), using high-quality premultiplied-alpha
+   resampling. For buildings that are too tall, the canvas height is increased (and recorded
+   in `art-meta.json`); with `--no-auto-height`, and for props, the art is scaled down instead.
 7. **Aligns** the lowest painted pixel to the footprint's front corner, centred on the anchor.
 8. **Measures** `top`, lit windows and the orb, and writes `art-meta.json`.
 9. **Writes** `src/assets/art/<file>.png` and a preview at `art-previews/<name>.preview.png`
@@ -263,6 +276,9 @@ Options:
 | `--mirror` / `--no-mirror` | Force or forbid mirroring (default: auto-detect) |
 | `--key auto/on/off` | Background removal (default auto) |
 | `--keep-islands` | Don't despeckle |
+| `--visual WxD` / `--visual U0,V0,U1,V1` | The art paints more than its logical footprint (§11) |
+| `--ground FILE` | Ground-layer image (same pixel size as the input) for gardens, paths and shadows (§11) |
+| `--height PX` / `--no-auto-height` | Set the canvas height / shrink tall art instead of growing the canvas |
 | `--tile square/diamond` | Terrain source type (default auto) |
 | `--effect NAME=X,Y` / `NAME=none` | Set or disable chimney, orb, wheel or window (repeatable) |
 | `--dry-run` | Report only; write nothing |
@@ -306,3 +322,115 @@ These checks are heuristics. Always place, rotate and move the building in game
 - **WebP (optional):** converting the PNG masters with an external tool such as
   `cwebp -q 90 -alpha_q 100 in.png -o out.webp` and re-running the validator. Not required:
   PNG works in game.
+
+## 11. Artwork larger than its logical footprint
+
+Premium illustrations often paint more than the building itself: a cottage with a garden,
+lanterns, a path and flower beds around a 1×1 tile. The pipeline supports this without changing
+gameplay.
+
+### Two footprints
+
+| | Logical footprint | Visual footprint |
+| --- | --- | --- |
+| Defined in | `src/core/buildings.ts` (cottage stays **1×1**) | `art-meta.json` → `visual`, per image |
+| Used for | Collision, placement, moving, saves, the "occupied" shading | Canvas size, art alignment, the dashed outline |
+| Shown as | The solid green/red diamond while placing; the solid gold tile when selected | A dashed outline around the art |
+
+- Decorative overhang **never blocks placement**: other buildings can be built right up against
+  the cottage's tile, even where its garden is painted.
+- Overhang can run past the edge of the map.
+- Saves contain only logical positions, so old saves load unchanged.
+
+### Declaring the visual footprint
+
+`visual` is given in the building's **own** tile frame: `u` along its width and `v` along its
+depth, as at r0. The logical footprint is `u 0…W`, `v 0…D`. The game rotates the bounds with the
+building, so one declaration works for every rotation.
+
+```json
+"buildings/cottage/cottage_r0": { "visual": { "u0": -0.5, "v0": -0.5, "u1": 1.5, "v1": 1.5 } }
+```
+
+Rules (checked by `npm run validate:assets`):
+- the bounds must contain the logical footprint;
+- values must be in quarter tiles;
+- overhang is at most 2 tiles per side (more than 1 tile gives a warning).
+
+`height` (a multiple of 32, from 128 to 4096) overrides the canvas height. By default, the canvas
+height scales with the visual width, and the importer grows it automatically for tall art.
+
+For the cottage, the canvas and anchor become (generated values, also in §6):
+
+| Visual footprint | Canvas | Anchor | Logical 1×1 tile front corner | Visual front corner |
+| --- | --- | --- | --- | --- |
+| 2×2 (half a tile all round) | 576 × 896 | (288, 736) | (288, 800) | (288, 864) |
+| 3×3 (one tile all round) | 832 × 1344 | (416, 1120) | (416, 1184) | (416, 1312) |
+
+### Optional ground layer
+
+Overhanging *ground* decoration (lawn, flower beds, paths, a soft shadow) is best delivered as
+a separate image with the exact same size:
+
+`buildings/<type>/<type>_r<N>_ground.png` (for example `buildings/cottage/cottage_r0_ground.png`)
+
+- **Depth:** the ground layer is drawn in its own band. That band is above the terrain, below
+  the build-mode grid, and below **every** building, so a neighbour standing on the garden is
+  always drawn on top of it.
+- **What goes where:** the main image keeps everything that stands up (walls, roof, fences,
+  lanterns, trees). The game sorts it by the logical footprint like any building.
+- **Single image:** without a ground layer, the garden is part of the main image. That works,
+  but a building placed directly *behind* the cottage can then be partly covered by the garden
+  painted at the cottage's back edge. Prefer a ground layer for gardens wider than about half a
+  tile.
+- **Shared metadata:** the ground layer uses its building image's metadata; it has no
+  `art-meta.json` entry of its own. Alignment is validated on building and ground layer
+  together.
+
+### Selection, taps and zoom
+
+- **Taps** are pixel-accurate on painted art. A tap selects:
+  1. the front-most building whose upright art is under the finger (so tapping a roof that
+     overlaps the tile behind selects the cottage);
+  2. otherwise, the building that occupies the tapped tile;
+  3. otherwise, a building whose ground layer is under the finger.
+
+  A garden therefore never steals a tap from the building standing on that tile. While placing
+  or moving, taps still only move the preview.
+- **Selected:** the logical tile gets the gold highlight, and the visual footprint gets a dashed
+  outline. **Placing/moving:** the solid diamond is the collision area, and the dashed outline is
+  the decoration.
+- **Mobile zoom:**
+  - the game builds half- and quarter-resolution copies of every painted texture and switches
+    between them as you zoom, so zoomed-out art doesn't shimmer;
+  - when painted art is loaded, maximum zoom is capped at one source pixel per device pixel
+    (2.0× on a typical 2× phone), so art is never shown blurry and upscaled.
+
+### Importing an illustration with overhang
+
+```bash
+# one image (house + garden), garden half a tile beyond the tile on every side
+npm run art:import -- path/to/cottage.png --as cottage_r0 --visual 2x2
+
+# house and garden exported as two layers of the same pixel size
+npm run art:import -- path/to/cottage_house.png --as cottage_r0 --visual 2x2 --ground path/to/cottage_garden.png
+
+# asymmetric: garden only in front of the cottage (one extra tile along +v)
+npm run art:import -- path/to/cottage.png --as cottage_r0 --visual 0,0,1,2
+```
+
+The importer scales the art so it spans the **visual** footprint, aligns the lowest painted
+pixel (of house and garden together) to the **visual** front corner, writes `visual` (and
+`height` if it grew the canvas) into `art-meta.json`, and validates the result.
+
+The preview (`art-previews/<name>.preview.png`) shows:
+- green: the visual footprint;
+- orange: the logical tile;
+- cyan: the anchor;
+- yellow: the top;
+- magenta: effect points.
+
+The house should stand on the orange diamond. If it doesn't, the illustration's garden isn't
+centred on the house. Re-import with asymmetric bounds (e.g. `--visual -0.5,-0.25,1.5,1.75`) and
+check the preview again.
+

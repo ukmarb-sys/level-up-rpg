@@ -6,6 +6,8 @@ scales and aligns the art to the footprint, measures its top and effect points i
 
 ```bash
 npm run art:import -- path/to/cottage.png --as cottage_r0
+# art that paints a garden around its 1x1 tile (logical footprint unchanged):
+npm run art:import -- path/to/cottage.png --as cottage_r0 --visual 2x2 [--ground path/to/garden.png]
 npm run validate:assets
 ```
 

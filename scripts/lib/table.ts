@@ -1,6 +1,6 @@
 /** Generates the reference tables embedded in docs/ASSET_SPEC.md (kept in sync by a test). */
-import { ASSET_MANIFEST, type AssetEntry } from '../../src/assets/manifest';
-import { diamondCorners } from '../../src/assets/spec';
+import { ASSET_MANIFEST, buildingGeometry, type AssetEntry } from '../../src/assets/manifest';
+import { diamondCorners, logicalCorners } from '../../src/assets/spec';
 
 const pt = (p?: { x: number; y: number } | null) => (p ? `(${p.x}, ${p.y})` : '—');
 
@@ -20,6 +20,19 @@ export function assetTables(): string {
     const f = e.effects ?? {};
     return `| \`${e.file.split('/').pop()}\` | ${pt(e.top)} | ${pt(f.chimney)} | ${pt(f.orb)} | ${pt(f.wheel)} | ${(f.windows ?? []).map(pt).join(' ') || '—'} |`;
   });
+  const presets: [string, number][] = [
+    ['2x2', 0.5],
+    ['3x3', 1],
+  ];
+  const ovHead =
+    '| Cottage `--visual` | art-meta `visual` | Canvas (px) | Anchor (logical centre) | Logical tile corners L / R / front | Visual corners L / R / front |\n' +
+    '| --- | --- | --- | --- | --- | --- |';
+  const ov = presets.map(([name, o]) => {
+    const g = buildingGeometry('cottage', 0, { u0: -o, v0: -o, u1: 1 + o, v1: 1 + o });
+    const l = logicalCorners(g);
+    const c = diamondCorners(g);
+    return `| \`${name}\` | \`{ u0: ${-o}, v0: ${-o}, u1: ${1 + o}, v1: ${1 + o} }\` | ${g.canvas.width} × ${g.canvas.height} | ${pt(g.anchor)} | ${pt(l.left)} ${pt(l.right)} ${pt(l.bottom)} | ${pt(c.left)} ${pt(c.right)} ${pt(c.bottom)} |`;
+  });
   return [
     '### Buildings',
     '',
@@ -37,5 +50,10 @@ export function assetTables(): string {
     '',
     fxHead,
     ...fx,
+    '',
+    '### Cottage artwork with an overhanging garden (logical footprint stays 1×1)',
+    '',
+    ovHead,
+    ...ov,
   ].join('\n');
 }

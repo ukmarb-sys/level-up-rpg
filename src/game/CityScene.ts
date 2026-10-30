@@ -8,13 +8,26 @@ import type { GameStore, Snapshot } from '../core/store';
 import type { Building, BuildingType, GridPos, Rotation } from '../core/types';
 import { propKey } from '../assets/manifest';
 import { box, drawBuilding, drawProp, flat, makeGroundTextures, type ArtAnchors } from './art';
-import { buildingChoice, effectPoint, makeSprite, queueArt, terrainChoice, type LoadedArt } from './assets';
+import { buildingChoice, effectPoint, lodTextureKey, makeSprite, queueArt, terrainChoice, type LoadedArt } from './assets';
+import { buildingAt } from '../core/grid';
+import { groundKey, type AssetEntry } from '../assets/manifest';
+import { overhangs, type GridRect } from '../assets/spec';
+import {
+  BASE_MIN_ZOOM,
+  chooseLod,
+  drawnVisualRect,
+  groundDecalDepth,
+  HIT_ALPHA,
+  maxZoomFor,
+  resolveTap,
+  spritePixelAt,
+  type LodFactor,
+} from './spriteRules';
 import { footprintDepth, isoPoint, TILE_H, TILE_W, worldToGridF, worldToTile } from './iso';
 import { fbm, hash2, mixColor } from './noise';
 import { isInsideGrid, layoutProps, SCENERY_RING } from './props';
 
-const MIN_ZOOM = 0.45;
-const MAX_ZOOM = 2.4;
+const MIN_ZOOM = BASE_MIN_ZOOM;
 const DRAG_THRESHOLD = 10;
 
 // Terrain palette (final colours after tinting).
@@ -25,11 +38,30 @@ const MEADOW = 0x8fa848;
 const FOREST_FLOOR = 0x2d4c31;
 const GRID_DEPTH = -500;
 
+/** What addBuildingVisual produced for one building. */
+interface VisualParts {
+  anchors: ArtAnchors & { sprite?: boolean };
+  /** Upright painted sprite (absent for procedural buildings). */
+  sprite?: { img: Phaser.GameObjects.Image; key: string; flipX: boolean; entry: AssetEntry };
+  /** Optional ground layer (garden/path/shadow), same anchor as the sprite. */
+  ground?: { img: Phaser.GameObjects.Image; key: string };
+  /** Visual footprint in grid tiles relative to the building's logical top corner. */
+  visual: GridRect;
+}
+
 interface BuildingView {
   building: Building;
   container: Phaser.GameObjects.Container;
   anchors: ArtAnchors;
+  parts: VisualParts;
   dispose: () => void;
+}
+
+interface LodImage {
+  img: Phaser.GameObjects.Image;
+  key: string;
+  scaleX: number;
+  scaleY: number;
 }
 
 export class CityScene extends Phaser.Scene {
@@ -37,12 +69,14 @@ export class CityScene extends Phaser.Scene {
   private dpr = 1;
   private userZoom = 1;
   private views = new Map<string, BuildingView>();
-  private ghost?: { key: string; container: Phaser.GameObjects.Container; base: Phaser.GameObjects.Graphics };
+  private ghost?: { key: string; container: Phaser.GameObjects.Container; base: Phaser.GameObjects.Graphics; visual: GridRect };
   private selection!: Phaser.GameObjects.Graphics;
   private marker!: Phaser.GameObjects.Container;
   private grid!: Phaser.GameObjects.Graphics;
   private gridShown = false;
   private art!: LoadedArt;
+  private lodImages = new Set<LodImage>();
+  private lod: LodFactor = 1;
   private unsubscribe?: () => void;
   private lastSnapshot?: Snapshot;
 
@@ -131,6 +165,7 @@ export class CityScene extends Phaser.Scene {
           // Painted tiles keep their own colours; the noise only adds gentle variation.
           img.setOrigin(0.5, 0).setScale(TILE_W / img.width, TILE_H / img.height);
           img.setTint(mixColor(colour, 0xffffff, 0.72));
+          this.trackLod(img, artKey);
         } else {
           img.setOrigin(0.5, 0).setTint(colour);
         }
@@ -194,7 +229,7 @@ export class CityScene extends Phaser.Scene {
       const depth = footprintDepth(p.x, p.y, 1, 1);
       const key = propKey(p.type);
       if (this.art.has(key)) {
-        const img = makeSprite(this, this.art, { key, flipX: hash2(p.x, p.y, 53) > 0.5 });
+        const img = this.trackLod(makeSprite(this, this.art, { key, flipX: hash2(p.x, p.y, 53) > 0.5 }), key);
         img.setPosition(centre.x + jitter.x, centre.y + jitter.y).setDepth(depth);
       } else {
         const g = this.add.graphics({ x: centre.x + jitter.x, y: centre.y + jitter.y }).setDepth(depth);
@@ -299,62 +334,153 @@ export class CityScene extends Phaser.Scene {
     const p = isoPoint(b.x, b.y);
     const { w, d } = footprintSize(b.type, b.rotation);
     const container = this.add.container(p.x, p.y).setDepth(footprintDepth(b.x, b.y, w, d));
-    const anchors = this.addBuildingVisual(container, b.type, b.rotation, 1);
+    const parts = this.addBuildingVisual(container, b.type, b.rotation, 1, 'scene');
+    if (parts.ground) {
+      // Ground layers live in their own depth band beneath every upright building.
+      parts.ground.img.setPosition(p.x + parts.ground.img.x, p.y + parts.ground.img.y).setDepth(groundDecalDepth(b.x, b.y, w, d));
+    }
+    const anchors = parts.anchors;
     const cleanups = this.animate(b.type, container, anchors);
     if (animateIn) {
       container.setScale(0.6, 0.2).setAlpha(0);
       this.tweens.add({ targets: container, scaleX: 1, scaleY: 1, alpha: 1, duration: 420, ease: 'Back.easeOut' });
+      if (parts.ground) {
+        parts.ground.img.setAlpha(0);
+        this.tweens.add({ targets: parts.ground.img, alpha: 1, duration: 420 });
+      }
       this.puff(p.x + (w - d) * (TILE_W / 4), p.y + (w + d) * (TILE_H / 4), 0xf3e2b5);
     }
     return {
       building: b,
       container,
       anchors,
+      parts,
       dispose: () => {
         cleanups.forEach((c) => c());
         this.tweens.killTweensOf(container);
+        if (parts.ground) {
+          this.tweens.killTweensOf(parts.ground.img);
+          parts.ground.img.destroy();
+        }
         container.destroy(true);
       },
     };
   }
 
+  /** Registers an image for level-of-detail texture switching as the camera zooms. */
+  private trackLod<T extends Phaser.GameObjects.Image>(img: T, key: string): T {
+    const rec: LodImage = { img, key, scaleX: img.scaleX, scaleY: img.scaleY };
+    this.lodImages.add(rec);
+    img.once(Phaser.GameObjects.Events.DESTROY, () => this.lodImages.delete(rec));
+    if (this.lod !== 1) this.applyLodTo(rec);
+    return img;
+  }
+
+  private applyLodTo(rec: LodImage) {
+    rec.img.setTexture(lodTextureKey(this, rec.key, this.lod));
+    rec.img.setScale(rec.scaleX * this.lod, rec.scaleY * this.lod);
+  }
+
+  private updateLod() {
+    const next = chooseLod(this.cameras.main.zoom);
+    if (next === this.lod) return;
+    this.lod = next;
+    this.lodImages.forEach((rec) => this.applyLodTo(rec));
+  }
+
   /**
    * Adds artwork for a building to a container positioned at the footprint's top corner.
-   * Uses the AI/painted sprite when one loaded, otherwise the procedural drawing.
+   * Uses the painted sprite when one loaded, otherwise the procedural drawing. A painted
+   * sprite's optional ground layer goes into the container (`'container'`, used by the
+   * placement preview) or is returned as a separate scene object (`'scene'`) so the caller can
+   * put it in the ground-decal depth band.
    */
   private addBuildingVisual(
     container: Phaser.GameObjects.Container,
     type: BuildingType,
     rotation: Rotation,
     alpha: number,
-  ): ArtAnchors & { sprite?: boolean } {
+    groundTarget: 'scene' | 'container',
+  ): VisualParts {
+    const { w, d } = footprintSize(type, rotation);
     const choice = buildingChoice(this.art, type, rotation);
     if (!choice) {
       const g = this.add.graphics();
       container.add(g);
-      return drawBuilding(g, type, rotation, alpha);
+      return { anchors: drawBuilding(g, type, rotation, alpha), visual: { x: 0, y: 0, w, d } };
     }
-    const { w, d } = footprintSize(type, rotation);
     const centre = isoPoint(w / 2, d / 2);
-    const img = makeSprite(this, this.art, choice).setPosition(centre.x, centre.y).setAlpha(alpha);
+    const entry = this.art.entry(choice.key)!;
+    let ground: VisualParts['ground'];
+    const gKey = groundKey(choice.key);
+    if (this.art.has(gKey)) {
+      const gImg = this.trackLod(makeSprite(this, this.art, { key: gKey, flipX: choice.flipX }), gKey);
+      gImg.setPosition(centre.x, centre.y).setAlpha(alpha);
+      if (groundTarget === 'container') container.add(gImg);
+      ground = { img: gImg, key: gKey };
+    }
+    const img = this.trackLod(makeSprite(this, this.art, choice), choice.key).setPosition(centre.x, centre.y).setAlpha(alpha);
     const shadow = this.add.graphics();
     flat(shadow, { x: 0, y: 0, w, d }, 0, 0x000000, 0.16 * alpha);
     container.add([shadow, img]);
-    const entry = this.art.entry(choice.key)!;
     const at = (pt: { x: number; y: number }) => {
       const e = effectPoint(entry, pt, choice.flipX);
       return { x: centre.x + e.x, y: centre.y + e.y };
     };
     const fx = entry.effects ?? {};
     return {
-      chimney: fx.chimney ? at(fx.chimney) : undefined,
-      orb: fx.orb ? at(fx.orb) : undefined,
-      windows: fx.windows?.map(at),
-      wheel: fx.wheel ? at(fx.wheel) : undefined,
-      // Measured top of the painted pixels (art-meta.json) or the manifest reference.
-      top: entry.top ? at(entry.top) : { x: centre.x, y: img.getTopCenter().y + 6 },
-      sprite: true,
+      anchors: {
+        chimney: fx.chimney ? at(fx.chimney) : undefined,
+        orb: fx.orb ? at(fx.orb) : undefined,
+        windows: fx.windows?.map(at),
+        wheel: fx.wheel ? at(fx.wheel) : undefined,
+        // Measured top of the painted pixels (art-meta.json) or the manifest reference.
+        top: entry.top ? at(entry.top) : { x: centre.x, y: img.getTopCenter().y + 6 },
+        sprite: true,
+      },
+      sprite: { img, key: choice.key, flipX: choice.flipX, entry },
+      ground,
+      visual: overhangs(entry.geometry) ? drawnVisualRect(entry.geometry, choice.flipX) : { x: 0, y: 0, w, d },
     };
+  }
+
+  /** Dashed diamond outline of a grid rectangle (used to show artwork overhang). */
+  private dashedRect(g: Phaser.GameObjects.Graphics, r: GridRect, ox: number, oy: number, colour: number, alpha: number) {
+    const pts = [isoPoint(ox + r.x, oy + r.y), isoPoint(ox + r.x + r.w, oy + r.y), isoPoint(ox + r.x + r.w, oy + r.y + r.d), isoPoint(ox + r.x, oy + r.y + r.d)];
+    g.lineStyle(1.5, colour, alpha);
+    for (let i = 0; i < 4; i++) {
+      const a = pts[i];
+      const b = pts[(i + 1) % 4];
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      const n = Math.max(1, Math.floor(len / 8));
+      for (let k = 0; k < n; k += 2) {
+        const t0 = k / n;
+        const t1 = Math.min(1, (k + 1) / n);
+        g.lineBetween(a.x + (b.x - a.x) * t0, a.y + (b.y - a.y) * t0, a.x + (b.x - a.x) * t1, a.y + (b.y - a.y) * t1);
+      }
+    }
+  }
+
+  /**
+   * Finds what a tap at `world` hits: the front-most upright artwork (pixel-accurate), the
+   * building on the tapped tile, and any ground layer under the finger.
+   */
+  private pick(world: { x: number; y: number }, tile: GridPos) {
+    const hits: { upright?: string; tile?: string; ground?: string } = {};
+    hits.tile = buildingAt(tile, this.store.state.buildings)?.id;
+    const views = [...this.views.values()].filter((v) => v.container.visible).sort((a, b) => b.container.depth - a.container.depth);
+    const alphaAt = (key: string, flipX: boolean, entry: AssetEntry, img: Phaser.GameObjects.Image) => {
+      const m = img.getWorldTransformMatrix();
+      const px = spritePixelAt(world, { x: m.tx, y: m.ty }, entry.geometry, flipX);
+      return px ? (this.textures.getPixelAlpha(px.x, px.y, key) ?? 0) : 0;
+    };
+    for (const v of views) {
+      const sp = v.parts.sprite;
+      if (!hits.upright && sp && alphaAt(sp.key, sp.flipX, sp.entry, sp.img) > HIT_ALPHA) hits.upright = v.building.id;
+      const gr = v.parts.ground;
+      if (!hits.ground && gr && sp && alphaAt(gr.key, sp.flipX, sp.entry, gr.img) > HIT_ALPHA) hits.ground = v.building.id;
+    }
+    return hits;
   }
 
   /** Subtle per-building life: smoke, flickering windows, waving crops, wheels, orbs. */
@@ -488,10 +614,10 @@ export class CityScene extends Phaser.Scene {
       this.ghost?.container.destroy(true);
       this.ghost = undefined;
       // reveal a building hidden while it was being moved
-      this.views.forEach((v) => v.container.setVisible(true));
+      this.views.forEach((v) => this.setViewVisible(v, true));
       return;
     }
-    this.views.forEach((v) => v.container.setVisible(!(mode.kind === 'moving' && v.building.id === mode.id)));
+    this.views.forEach((v) => this.setViewVisible(v, !(mode.kind === 'moving' && v.building.id === mode.id)));
 
     const key = `${mode.type}:${mode.rotation}`;
     if (!this.ghost || this.ghost.key !== key) {
@@ -500,18 +626,27 @@ export class CityScene extends Phaser.Scene {
       const base = this.add.graphics();
       const art = this.add.container(0, 0);
       container.add([base, art]);
-      this.addBuildingVisual(art, mode.type, mode.rotation, 0.75);
+      const parts = this.addBuildingVisual(art, mode.type, mode.rotation, 0.75, 'container');
       this.tweens.add({ targets: art, y: -4, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-      this.ghost = { key, container, base };
+      this.ghost = { key, container, base, visual: parts.visual };
     }
     const { w, d } = footprintSize(mode.type, mode.rotation);
     const p = isoPoint(mode.pos.x, mode.pos.y);
     this.ghost.container.setPosition(p.x, p.y).setDepth(8_000);
     const base = this.ghost.base.clear();
     const colour = ghostValid ? 0x5cffa1 : 0xff5c74;
+    // The solid diamond is the logical footprint: the only area that collides.
     flat(base, { x: 0, y: 0, w, d }, 0, colour, 0.35);
     base.lineStyle(2, colour, 0.95);
     base.strokePoints([isoPoint(0, 0), isoPoint(w, 0), isoPoint(w, d), isoPoint(0, d)], true);
+    // A dashed outline shows decorative overhang, which never blocks placement.
+    const v = this.ghost.visual;
+    if (v.x !== 0 || v.y !== 0 || v.w !== w || v.d !== d) this.dashedRect(base, v, 0, 0, 0xffffff, 0.55);
+  }
+
+  private setViewVisible(v: BuildingView, visible: boolean) {
+    v.container.setVisible(visible);
+    v.parts.ground?.img.setVisible(visible);
   }
 
   private makeSelectionMarker(): Phaser.GameObjects.Container {
@@ -539,6 +674,8 @@ export class CityScene extends Phaser.Scene {
     // Drawn just under the building so the glow frames it without covering it.
     this.selection.setDepth(footprintDepth(b.x, b.y, w, d) - 0.01);
     const view = this.views.get(id);
+    const v = view?.parts.visual;
+    if (v && (v.x !== 0 || v.y !== 0 || v.w !== w || v.d !== d)) this.dashedRect(this.selection, v, b.x, b.y, 0xffd56b, 0.6);
     if (view) {
       this.marker.setPosition(view.container.x + view.anchors.top.x, view.container.y + view.anchors.top.y - 10).setVisible(true);
     }
@@ -546,9 +683,10 @@ export class CityScene extends Phaser.Scene {
 
   // --- camera & input ----------------------------------------------------------------
   private applyZoom() {
-    this.userZoom = Phaser.Math.Clamp(this.userZoom, MIN_ZOOM, MAX_ZOOM);
+    this.userZoom = Phaser.Math.Clamp(this.userZoom, MIN_ZOOM, maxZoomFor(this.dpr, this.art.any));
     this.cameras.main.setZoom(this.userZoom * this.dpr);
     this.clampCamera();
+    this.updateLod();
   }
 
   private clampCamera() {
@@ -647,7 +785,12 @@ export class CityScene extends Phaser.Scene {
 
     const end = (pointer: Phaser.Input.Pointer) => {
       const g = this.gesture;
-      if (g.kind === 'pending') this.store.tapTile(this.tileAt(pointer));
+      if (g.kind === 'pending') {
+        const tile = this.tileAt(pointer);
+        const mode = this.store.mode.kind;
+        if (mode === 'placing' || mode === 'moving') this.store.tapTile(tile);
+        else this.store.tapBuilding(resolveTap(this.pick(this.cameras.main.getWorldPoint(pointer.x, pointer.y), tile)), tile);
+      }
       // after a pinch, wait until all fingers lift before starting a new gesture
       this.gesture = this.activePointers().length > 0 && g.kind === 'pinch' ? g : { kind: 'none' };
       if (this.gesture.kind === 'pinch' && this.activePointers().length < 2) this.gesture = { kind: 'none' };

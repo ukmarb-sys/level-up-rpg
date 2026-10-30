@@ -21,6 +21,8 @@ const ART_URLS = import.meta.glob('../assets/art/**/*.{webp,png}', {
 
 export interface LoadedArt {
   has(key: string): boolean;
+  /** True when at least one painted image loaded (enables art-specific zoom limits). */
+  readonly any: boolean;
   entry(key: string): AssetEntry | undefined;
   terrainKeys: string[];
   missing: string[];
@@ -38,6 +40,9 @@ export function queueArt(scene: Phaser.Scene): LoadedArt {
   const has = (key: string) => found.has(key) && !failed.includes(key) && scene.textures.exists(key);
   return {
     has,
+    get any() {
+      return [...found.keys()].some(has);
+    },
     entry: (key) => {
       const e = manifestByKey.get(key);
       return e && applyMeta(e, artMeta as ArtMeta);
@@ -72,4 +77,27 @@ export function buildingChoice(art: LoadedArt, type: BuildingType, rotation: Rot
 
 export function terrainChoice(art: LoadedArt, variant: number) {
   return resolveTerrainKey(variant, art.terrainKeys);
+}
+
+/**
+ * Lazily builds downsampled copies of a loaded texture ("key@2", "key@4") using the browser's
+ * high-quality canvas scaler, so zoomed-out sprites don't shimmer (Phaser has no mipmaps for
+ * non-power-of-two textures). Returns the key to use for the given factor.
+ */
+export function lodTextureKey(scene: Phaser.Scene, key: string, factor: 1 | 2 | 4): string {
+  if (factor === 1) return key;
+  const lodKey = `${key}@${factor}`;
+  if (scene.textures.exists(lodKey)) return lodKey;
+  const from = factor === 4 ? lodTextureKey(scene, key, 2) : key;
+  const src = scene.textures.get(from).getSourceImage() as HTMLImageElement | HTMLCanvasElement;
+  const w = Math.max(1, Math.round(src.width / 2));
+  const h = Math.max(1, Math.round(src.height / 2));
+  const tex = scene.textures.createCanvas(lodKey, w, h);
+  if (!tex) return key;
+  const ctx = tex.getContext();
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(src, 0, 0, w, h);
+  tex.refresh();
+  return lodKey;
 }

@@ -152,6 +152,8 @@ describe('docs/ASSET_SPEC.md stays in sync with the manifest', () => {
     const m = /<!-- asset-tables:start[^>]*-->\n([\s\S]*?)\n<!-- asset-tables:end -->/.exec(doc);
     expect(m, 'table markers missing').toBeTruthy();
     expect(m![1]).toBe(assetTables());
-    for (const e of ASSET_MANIFEST) expect(doc).toContain(`\`${e.file}.png\``);
+    for (const e of ASSET_MANIFEST.filter((x) => x.kind !== 'ground')) expect(doc).toContain(`\`${e.file}.png\``);
+    // ground layers are documented by their exact naming rule rather than 16 table rows
+    expect(doc).toContain('`buildings/<type>/<type>_r<N>_ground.png`');
   });
 });

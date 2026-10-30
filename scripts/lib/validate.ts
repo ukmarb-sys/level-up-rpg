@@ -3,10 +3,14 @@
  * src/assets/spec.ts. AI-generated images are rarely aligned exactly, so this verifies
  * dimensions, transparency and where the opaque pixels actually sit relative to the footprint.
  */
-import { ASSET_MANIFEST, manifestByFile, type AssetEntry } from '../../src/assets/manifest';
-import { activeEffects, applyMeta, type ArtMeta } from '../../src/assets/meta';
+import { ASSET_MANIFEST, groundKey, manifestByFile, manifestByKey, type AssetEntry } from '../../src/assets/manifest';
+
+/** Largest allowed overhang of artwork beyond the logical footprint, in tiles per side. */
+export const MAX_OVERHANG = 2;
+import { activeEffects, applyMeta, type ArtMeta, type ArtMetaEntry } from '../../src/assets/meta';
+import { logicalBounds } from '../../src/assets/geometry';
 import { explainUnknownFile, matchArtFiles } from '../../src/assets/resolve';
-import { diamondCorners, GROUND_TOLERANCE, PAD } from '../../src/assets/spec';
+import { diamondCorners, GROUND_TOLERANCE, overhangs, PAD } from '../../src/assets/spec';
 import { decodePng, readImageInfo, type RgbaImage } from './image';
 
 export type Severity = 'error' | 'warning';
@@ -50,7 +54,15 @@ export function validateArt(files: ArtFile[], opts: { strict?: boolean; meta?: A
     if (candidates.length > 1) {
       add('warning', candidates.map((c) => c.path).join(' + '), `Both WebP and PNG exist for ${entry.key}; the game uses ${found.get(entry.key)}`);
     }
-    for (const f of candidates) checkFile(applyMeta(entry, meta), f, add, entry.file in meta);
+    const effective = applyMeta(entry, meta);
+    if (entry.kind === 'ground' && candidates.length && !found.has(entry.layerOf!)) {
+      add('error', candidates[0].path, `Ground layer without its building sprite ${manifestByKey.get(entry.layerOf!)!.file}.png`);
+    }
+    // A building's alignment is judged on its upright art plus its ground layer (if any).
+    const groundPath = entry.kind === 'building' ? found.get(groundKey(entry.key)) : undefined;
+    const groundFile = groundPath ? files.find((f) => f.path === groundPath) : undefined;
+    const companion = groundFile ? (decodePng(groundFile.data) ?? undefined) : undefined;
+    for (const f of candidates) checkFile(effective, f, add, entry.file in meta, companion);
   }
   checkMeta(meta, found, add);
 
@@ -70,7 +82,12 @@ function checkMeta(meta: ArtMeta, found: Map<string, string>, add: (s: Severity,
       continue;
     }
     if (!found.has(entry.key)) add('warning', where, 'Metadata for an image that does not exist');
-    const { width, height } = entry.geometry.canvas;
+    if (entry.kind === 'ground') {
+      add('error', where, `Ground layers share their building's metadata; move this to "${manifestByKey.get(entry.layerOf!)!.file}"`);
+      continue;
+    }
+    if (m.visual || m.height !== undefined) checkVisualMeta(entry, m, where, add);
+    const { width, height } = applyMeta(entry, meta).geometry.canvas;
     const pts = [...(m.top ? [{ name: 'top', point: m.top }] : []), ...activeEffects(m.effects)];
     for (const { name, point } of pts) {
       const ok = Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 0 && point.y >= 0 && point.x < width && point.y < height;
@@ -79,7 +96,40 @@ function checkMeta(meta: ArtMeta, found: Map<string, string>, add: (s: Severity,
   }
 }
 
-function checkFile(entry: AssetEntry, f: ArtFile, add: (s: Severity, file: string, m: string) => void, hasMeta = false) {
+/** Overhang must contain the logical footprint, use quarter tiles and stay within reason. */
+function checkVisualMeta(entry: AssetEntry, m: ArtMetaEntry, where: string, add: (s: Severity, file: string, m: string) => void) {
+  if (!entry.building) {
+    add('error', where, '"visual"/"height" are only supported for building sprites');
+    return;
+  }
+  const { type } = entry.building;
+  const L = logicalBounds(type);
+  if (m.visual) {
+    const v = m.visual;
+    const nums = [v.u0, v.v0, v.u1, v.v1];
+    if (!nums.every((n) => Number.isFinite(n) && Math.abs(n * 4 - Math.round(n * 4)) < 1e-9)) {
+      add('error', where, 'visual bounds must be numbers in quarter tiles (e.g. -0.5, 1.25)');
+      return;
+    }
+    if (v.u0 > L.u0 || v.v0 > L.v0 || v.u1 < L.u1 || v.v1 < L.v1) {
+      add('error', where, `visual footprint {u0:${v.u0}, v0:${v.v0}, u1:${v.u1}, v1:${v.v1}} must contain the logical footprint {u0:0, v0:0, u1:${L.u1}, v1:${L.v1}}`);
+    }
+    const over = Math.max(L.u0 - v.u0, L.v0 - v.v0, v.u1 - L.u1, v.v1 - L.v1);
+    if (over > MAX_OVERHANG) add('error', where, `Overhang of ${over} tiles exceeds the ${MAX_OVERHANG}-tile limit`);
+    else if (over > 1) add('warning', where, `Overhang of ${over} tiles: neighbouring buildings will cover a lot of this art; consider a ground layer`);
+  }
+  if (m.height !== undefined && !(Number.isInteger(m.height) && m.height % 32 === 0 && m.height >= 128 && m.height <= 4096)) {
+    add('error', where, 'height must be a multiple of 32 between 128 and 4096');
+  }
+}
+
+function checkFile(
+  entry: AssetEntry,
+  f: ArtFile,
+  add: (s: Severity, file: string, m: string) => void,
+  hasMeta = false,
+  companion?: RgbaImage,
+) {
   const info = readImageInfo(f.data);
   if (!info) return add('error', f.path, 'Unreadable or unsupported image (use PNG or WebP)');
   const { canvas, footprint } = entry.geometry;
@@ -100,9 +150,25 @@ function checkFile(entry: AssetEntry, f: ArtFile, add: (s: Severity, file: strin
   const img = decodePng(f.data);
   if (!img) return add('error', f.path, 'Could not decode PNG');
   if (entry.kind === 'terrain') checkTerrain(entry, img, f.path, add);
+  else if (entry.kind === 'ground') checkGround(img, f.path, add);
   else {
-    checkObject(entry, img, f.path, add);
+    const union: RgbaImage =
+      companion && companion.width === img.width && companion.height === img.height
+        ? { width: img.width, height: img.height, alpha: (x, y) => Math.max(img.alpha(x, y), companion.alpha(x, y)) }
+        : img;
+    checkObject(entry, union, f.path, add);
     checkPoints(entry, img, f.path, add, hasMeta);
+  }
+}
+
+/** Ground layers: transparent background and nothing cropped; alignment is checked with the sprite. */
+function checkGround(img: RgbaImage, file: string, add: (s: Severity, file: string, m: string) => void) {
+  const { width: W, height: H } = img;
+  if ([[0, 0], [W - 1, 0], [0, H - 1], [W - 1, H - 1]].some(([x, y]) => img.alpha(x, y) > OPAQUE)) {
+    add('error', file, 'Corners are not transparent — remove the background');
+  }
+  for (let x = 0; x < W; x++) {
+    if (img.alpha(x, 0) > OPAQUE || img.alpha(x, 1) > OPAQUE) return add('error', file, 'Ground layer touches the top edge; it is probably cropped or misaligned');
   }
 }
 
@@ -194,10 +260,10 @@ function checkObject(entry: AssetEntry, img: RgbaImage, file: string, add: (s: S
     add(
       'error',
       file,
-      `Artwork spans x=${minX}–${maxX} but a ${g.footprint.w}x${g.footprint.d} footprint spans x=${c.left.x}–${c.right.x}; wrong footprint size or scale?`,
+      `Artwork spans x=${minX}–${maxX} but a ${g.visual.w}x${g.visual.d} ${overhangs(g) ? 'visual ' : ''}footprint spans x=${c.left.x}–${c.right.x}; wrong footprint size or scale?`,
     );
   }
-  if (g.footprint.w !== g.footprint.d) {
+  if (g.visual.w !== g.visual.d) {
     // The lowest opaque pixels should sit near the front corner, whose x depends on orientation.
     let sum = 0;
     let n = 0;

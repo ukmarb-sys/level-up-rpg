@@ -13,6 +13,7 @@ Phaser draws objects by `depth` (higher draws later / on top). The scene uses fi
 | -1000 | Ground tiles (playable 20×20 grid + 2-tile scenery ring) | terrain art or procedural textures |
 | -999 | Ley-line rim around the buildable area | procedural |
 | -900 | Ground details (flowers, pebbles, mushrooms) | procedural, inside the grid only |
+| -800 + depth/1000 | Building ground layers (`*_ground.png`: gardens, paths, shadows) | painted art only |
 | -500 / -499 | Construction grid and occupied-tile tint (build mode only) | procedural |
 | ≈ x + y + (w + d)/2 | Buildings, scenery props, selection glow | sprites or procedural fallbacks |
 | 8000 | Placement/move preview ("ghost") | same visuals as buildings, 75% alpha |
@@ -111,3 +112,28 @@ so the validator and the game always agree on which files load:
 - URLs automatically include the GitHub Pages base path and a content hash.
 
 If a file fails to decode at runtime, it is treated as missing and the fallback is drawn.
+
+## Artwork larger than its footprint
+
+Each painted building image has two footprints:
+- a **logical** one (`src/core/buildings.ts`), used for gameplay, collision and saves;
+- a **visual** one (`art-meta.json` → `visual`), used only for drawing.
+
+`buildingGeometry` (`src/assets/manifest.ts`) sizes the canvas from the visual footprint and
+keeps the anchor at the logical footprint's centre. That means the scene positions every sprite
+exactly as before: at the centre of the tiles the building occupies.
+
+- **Depth:** the upright sprite sorts by its logical footprint. Its optional ground layer
+  (`*_ground.png`) goes in the `groundDecalDepth` band (`src/game/spriteRules.ts`), below every
+  building.
+- **Picking:** `CityScene.pick` checks the upright art pixel by pixel (`spritePixelAt` +
+  `textures.getPixelAlpha`) from the front-most building backwards, then the tapped tile, then
+  ground layers (`resolveTap`).
+- **Outlines:** the selection highlight and the placement preview draw the logical diamond solid
+  and the visual footprint dashed (`drawnVisualRect` mirrors it with the image).
+- **Level of detail:** `lodTextureKey` (`src/game/assets.ts`) lazily creates ½- and ¼-size copies
+  of each painted texture. `updateLod` switches all tracked images when the zoom crosses the
+  thresholds from `chooseLod`, keeping on-screen texels between about 0.5 and 1 device px.
+- **Zoom limit:** `maxZoomFor` caps zoom at `SOURCE_SCALE / devicePixelRatio` when painted art is
+  loaded.
+

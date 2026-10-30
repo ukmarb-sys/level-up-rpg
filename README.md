@@ -65,7 +65,9 @@ Tech: React 19, TypeScript, Vite, Phaser 3. No paid APIs or secrets.
 The game is ready for painted / AI-generated sprites. Import each image with
 `npm run art:import -- <file.png> --as <name>`, which removes the background, scales and aligns
 it to the footprint, measures its top and effect points, and validates it. Names, sizes and
-footprints are listed in [docs/ASSET_SPEC.md](docs/ASSET_SPEC.md).
+footprints are listed in [docs/ASSET_SPEC.md](docs/ASSET_SPEC.md). Art that paints more than its
+tile (for example a cottage with a garden) is supported with `--visual 2x2`. The building's
+gameplay footprint stays the same; see §11 of the spec.
 Anything missing falls back to the built-in procedural art, which is what ships today.
 [docs/RENDERING.md](docs/RENDERING.md) explains how terrain, buildings, depth sorting and
 the build-mode grid are drawn.

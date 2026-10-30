@@ -15,6 +15,12 @@
  *   --key auto|on|off   background removal (default auto)
  *   --tile square|diamond   terrain source type (default auto)
  *   --effect NAME=X,Y   set an effect point in output px (chimney, orb, wheel, window); NAME=none disables
+ *   --visual WxD        the art paints a WxD-tile area centred on the logical footprint (e.g. 2x2
+ *                       for a 1x1 cottage with a half-tile garden all round); logical footprint unchanged
+ *   --visual U0,V0,U1,V1   asymmetric visual footprint in the building's local tile frame
+ *   --ground FILE       ground layer (garden/path/shadow) exported at the same size as the input
+ *   --height PX         canvas height (multiple of 32); default grows automatically for tall art
+ *   --no-auto-height    shrink tall art to the default canvas instead of growing it
  *   --keep-islands      keep small detached pieces (sparks, motes) instead of removing them as specks
  *   --dry-run           report only; write nothing
  * Writes: src/assets/art/<path>.png, src/assets/art/art-meta.json, art-previews/<name>.preview.png
@@ -22,8 +28,9 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Pt } from '../src/assets/geometry';
-import { ASSET_MANIFEST, type AssetEntry } from '../src/assets/manifest';
+import { logicalBounds, type LocalBounds, type Pt } from '../src/assets/geometry';
+import { ASSET_MANIFEST, GROUND_SUFFIX, type AssetEntry } from '../src/assets/manifest';
+import { applyMeta } from '../src/assets/meta';
 import type { ArtMeta, ArtMetaEntry } from '../src/assets/meta';
 import { decodeImage } from './lib/image';
 import { importObject, importTerrain, measureObject, renderPreview, type ImportResult } from './lib/import';
@@ -58,6 +65,10 @@ function parseArgs(argv: string[]) {
     effects: {} as Record<string, Pt | null> & { windows?: Pt[] },
     dryRun: false,
     keepIslands: false,
+    visual: undefined as string | undefined,
+    ground: undefined as string | undefined,
+    height: undefined as number | undefined,
+    autoHeight: true,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -72,6 +83,10 @@ function parseArgs(argv: string[]) {
     else if (a === '--tile') opts.tile = next() as typeof opts.tile;
     else if (a === '--dry-run') opts.dryRun = true;
     else if (a === '--keep-islands') opts.keepIslands = true;
+    else if (a === '--visual') opts.visual = next();
+    else if (a === '--ground') opts.ground = next();
+    else if (a === '--height') opts.height = Number(next());
+    else if (a === '--no-auto-height') opts.autoHeight = false;
     else if (a === '--effect') {
       const m = /^(chimney|orb|wheel|window|windows)=(none|(-?\d+),(-?\d+))$/.exec(next());
       if (!m) fail('Use --effect chimney=X,Y | orb=X,Y | wheel=X,Y | window=X,Y | NAME=none');
@@ -83,6 +98,26 @@ function parseArgs(argv: string[]) {
   }
   if (opts.fill !== undefined && !(opts.fill > 0.3 && opts.fill <= 1.2)) fail('--fill must be between 0.3 and 1.2');
   return opts;
+}
+
+/**
+ * Parses --visual: "WxD" (centred on the logical footprint) or "U0,V0,U1,V1" (local tiles).
+ * Sizes are in the building's own r0 frame (width x depth), whichever rotation is imported.
+ */
+export function parseVisual(spec: string, entry: AssetEntry): LocalBounds {
+  if (!entry.building) throw new Error('--visual only applies to building sprites');
+  const L = logicalBounds(entry.building.type);
+  const size = /^(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/i.exec(spec);
+  if (size) {
+    const vw = Number(size[1]);
+    const vd = Number(size[2]);
+    const du = (vw - L.u1) / 2;
+    const dv = (vd - L.v1) / 2;
+    return { u0: -du, v0: -dv, u1: L.u1 + du, v1: L.v1 + dv };
+  }
+  const nums = spec.split(',').map(Number);
+  if (nums.length === 4 && nums.every(Number.isFinite)) return { u0: nums[0], v0: nums[1], u1: nums[2], v1: nums[3] };
+  throw new Error(`--visual must be WxD (e.g. 2x2) or U0,V0,U1,V1 (e.g. -0.5,-0.5,1.5,1.5); got "${spec}"`);
 }
 
 function readMeta(): ArtMeta {
@@ -110,18 +145,23 @@ function main() {
   const outPath = join(artDir, `${entry.file}.png`);
   const meta = readMeta();
   let result: ImportResult;
+  let measuredGround: ImportResult['ground'];
 
   if (opts.measure) {
     if (!existsSync(outPath)) fail(`${relative(root, outPath)} does not exist`);
     if (entry.kind === 'terrain') fail('Terrain tiles have no top/effect points to measure');
+    if (opts.visual || opts.height || opts.ground) fail('--visual/--height/--ground need a fresh import, not --measure');
     const img = decodeImage(readFileSync(outPath));
-    const m = measureObject(img, entry);
+    const m = measureObject(img, applyMeta(entry, meta));
     const prev = meta[entry.file] ?? {};
     const effects = { ...(prev.effects ?? {}) };
     if (entry.effects?.windows) effects.windows = m.windows;
     if (entry.effects && 'orb' in entry.effects && m.orb) effects.orb = m.orb;
     Object.assign(effects, opts.effects);
+    const existingGround = join(artDir, `${entry.file}${GROUND_SUFFIX}.png`);
+    const groundImg = existsSync(existingGround) ? decodeImage(readFileSync(existingGround)) : undefined;
     result = { raster: img, meta: { ...prev, top: m.top, effects }, notes: [`Measured top at (${m.top.x}, ${m.top.y})`], warnings: [], manual: [] };
+    measuredGround = groundImg;
   } else {
     if (!opts.input) fail('Give the input PNG path');
     const src = decodeImage(readFileSync(opts.input));
@@ -129,7 +169,18 @@ function main() {
     if (entry.kind === 'terrain') {
       result = importTerrain(src, entry, { mode: opts.tile, key: opts.key });
     } else {
+      let visual: LocalBounds | undefined;
+      try {
+        visual = opts.visual ? parseVisual(opts.visual, entry) : undefined;
+      } catch (e) {
+        fail((e as Error).message);
+      }
+      const ground = opts.ground ? decodeImage(readFileSync(opts.ground)) : undefined;
       result = importObject(src, entry, {
+        visual,
+        ground,
+        height: opts.height,
+        autoHeight: opts.autoHeight,
         fill: opts.fill,
         offsetY: opts.offsetY,
         mirror: opts.mirror,
@@ -141,7 +192,10 @@ function main() {
     }
   }
 
-  console.log(`\n${entry.file}  (${entry.geometry.canvas.width}x${entry.geometry.canvas.height}, footprint ${entry.geometry.footprint.w}x${entry.geometry.footprint.d})`);
+  const eff = result.meta ? applyMeta(entry, { [entry.file]: result.meta }) : entry;
+  const eg = eff.geometry;
+  const vis = eg.visual.w !== eg.footprint.w || eg.visual.d !== eg.footprint.d || eg.visual.x || eg.visual.y ? `, visual ${eg.visual.w}x${eg.visual.d}` : '';
+  console.log(`\n${entry.file}  (${eg.canvas.width}x${eg.canvas.height}, logical footprint ${eg.footprint.w}x${eg.footprint.d}${vis})`);
   for (const n of result.notes) console.log(`  • ${n}`);
   for (const w of result.warnings) console.log(`  ⚠ ${w}`);
   if (result.meta?.top) console.log(`  • Top (selection marker): (${result.meta.top.x}, ${result.meta.top.y})`);
@@ -150,16 +204,23 @@ function main() {
   const png = encodeRgba(result.raster.width, result.raster.height, result.raster.data);
   mkdirSync(dirname(outPath), { recursive: true });
   if (!opts.measure) writeFileSync(outPath, png);
+  const groundPath = join(artDir, `${entry.file}${GROUND_SUFFIX}.png`);
+  if (result.ground) {
+    writeFileSync(groundPath, encodeRgba(result.ground.width, result.ground.height, result.ground.data));
+    console.log(`  Wrote ${relative(root, groundPath)}`);
+  } else if (!opts.measure && existsSync(groundPath)) {
+    console.log(`  ⚠ ${relative(root, groundPath)} is from an earlier import and was left unchanged; re-import with --ground or delete it`);
+  }
   if (result.meta) {
     meta[entry.file] = result.meta as ArtMetaEntry;
     writeMeta(meta);
   }
   mkdirSync(previewDir, { recursive: true });
-  const preview = renderPreview(result.raster, entry, result.meta);
+  const preview = renderPreview(result.raster, entry, result.meta, result.ground ?? measuredGround);
   const previewPath = join(previewDir, `${entry.file.split('/').pop()}.preview.png`);
   writeFileSync(previewPath, encodeRgba(preview.width, preview.height, preview.data));
   console.log(`\n  Wrote ${relative(root, outPath)}${result.meta ? ' and art-meta.json' : ''}`);
-  console.log(`  Preview: ${relative(root, previewPath)}  (green = footprint, cyan = anchor, yellow = top, magenta = effects)`);
+  console.log(`  Preview: ${relative(root, previewPath)}  (green = visual footprint, orange = logical footprint, cyan = anchor, yellow = top, magenta = effects)`);
   if (result.manual.length) {
     console.log(`  ✋ Place by hand (look at the preview, then re-run with --measure ${target} --effect NAME=X,Y): ${result.manual.join(', ')}`);
   }

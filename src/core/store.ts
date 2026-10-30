@@ -134,6 +134,19 @@ export class GameStore {
     this.set({ mode: hit ? { kind: 'selected', id: hit.id } : { kind: 'idle' } });
   }
 
+  /**
+   * Tap that the renderer resolved to a specific building (e.g. by hitting its artwork, which
+   * may extend beyond its tiles). While placing/moving it still just moves the ghost to `pos`.
+   */
+  tapBuilding(id: string | null, pos: GridPos) {
+    const { mode, state } = this.snapshot;
+    if (mode.kind === 'placing' || mode.kind === 'moving' || !id || !state.buildings.some((b) => b.id === id)) {
+      this.tapTile(pos);
+      return;
+    }
+    this.set({ mode: { kind: 'selected', id } });
+  }
+
   /** Drag the ghost; same as tapping but without selection side-effects. */
   moveGhost(pos: GridPos) {
     const { mode, state } = this.snapshot;
