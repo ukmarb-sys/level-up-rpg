@@ -26,6 +26,8 @@ jobs:
       - run: npm ci
       - name: Unit tests
         run: npm test
+      - name: Validate artwork against the asset manifest
+        run: npm run validate:assets
       - name: Production build
         run: npm run build
         env:

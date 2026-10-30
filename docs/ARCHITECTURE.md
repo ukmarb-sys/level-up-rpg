@@ -11,15 +11,26 @@ src/
     save.ts        Versioned localStorage persistence + validation of untrusted saves
     events.ts      Typed event bus
     store.ts       GameStore: state + interaction mode + autosave + events
+  assets/    Artwork contract — pure data shared by the game, validator and tests
+    spec.ts        Projection scale, canvas/anchor formulas
+    manifest.ts    Every sprite the renderer can use, with expected geometry
+    resolve.ts     Sprite choice + fallbacks (exact rotation → opposite → mirrored)
+    art/           Drop folder for PNG/WebP artwork (bundled only if present)
   game/      Phaser rendering and input (reads the store, calls its methods)
     iso.ts         Isometric projection math
-    art.ts         Programmatic building/ground art from isometric primitives
-    CityScene.ts   Map, buildings, ghost, animations, pan/pinch/wheel input
+    art.ts         Procedural fallback art (buildings, props, ground textures)
+    assets.ts      Loads artwork via import.meta.glob, builds anchored sprites
+    noise.ts       Deterministic value noise for terrain variation
+    props.ts       Scenery layout on the ring outside the playable grid
+    CityScene.ts   Map, buildings, ghost, grid overlay, animations, pan/pinch/wheel input
     createGame.ts  Boots Phaser at device pixel ratio inside a DOM node
   ui/        React HUD: start screen, resource bar, build menu, action bar, toasts
   modules/   Pluggable gameplay modules (see below)
-tests/       Vitest specs for core logic
+scripts/     validate-assets.ts (+ lib/: PNG/WebP inspection and validation rules)
+tests/       Vitest specs for core logic, assets, validation and save compatibility
 ```
+
+See also [RENDERING.md](RENDERING.md) and [ASSET_SPEC.md](ASSET_SPEC.md).
 
 ## Data flow
 

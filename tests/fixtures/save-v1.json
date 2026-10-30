@@ -1,0 +1,19 @@
+{
+  "savedAt": 1793383478868,
+  "state": {
+    "version": 1,
+    "mapSize": 20,
+    "resources": { "wood": 40, "stone": 30, "magic": 20 },
+    "buildings": [
+      { "id": "b1", "type": "mageTower", "x": 9, "y": 9, "rotation": 0, "builtAt": 1793383356450 },
+      { "id": "b2", "type": "cottage", "x": 11, "y": 9, "rotation": 1, "builtAt": 1793383357000 },
+      { "id": "b3", "type": "farm", "x": 12, "y": 10, "rotation": 1, "builtAt": 1793383358000 },
+      { "id": "b4", "type": "sawmill", "x": 9, "y": 11, "rotation": 3, "builtAt": 1793383359000 },
+      { "id": "b5", "type": "cottage", "x": 8, "y": 9, "rotation": 1, "builtAt": 1793383360000 }
+    ],
+    "productionCarry": { "wood": 0.35, "stone": 0, "magic": 0.8 },
+    "nextId": 6,
+    "createdAt": 1793383300000,
+    "updatedAt": 1793383360000
+  }
+}

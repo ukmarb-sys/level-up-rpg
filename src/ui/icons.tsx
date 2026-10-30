@@ -95,7 +95,7 @@ export function BuildingIcon({ type, size = 48 }: { type: BuildingType; size?: n
   }
 }
 
-export function Glyph({ name }: { name: 'rotate' | 'check' | 'close' | 'move' | 'trash' | 'menu' | 'plus' | 'minus' }) {
+export function Glyph({ name }: { name: 'rotate' | 'check' | 'close' | 'move' | 'trash' | 'menu' | 'plus' | 'minus' | 'chevronUp' | 'chevronDown' }) {
   const p = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true } as const;
   switch (name) {
     case 'rotate':
@@ -114,5 +114,9 @@ export function Glyph({ name }: { name: 'rotate' | 'check' | 'close' | 'move' | 
       return <svg {...p}><path d="M12 5v14M5 12h14" /></svg>;
     case 'minus':
       return <svg {...p}><path d="M5 12h14" /></svg>;
+    case 'chevronUp':
+      return <svg {...p}><path d="m6 15 6-6 6 6" /></svg>;
+    case 'chevronDown':
+      return <svg {...p}><path d="m6 9 6 6 6-6" /></svg>;
   }
 }
