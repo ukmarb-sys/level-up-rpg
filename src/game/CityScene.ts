@@ -322,7 +322,12 @@ export class CityScene extends Phaser.Scene {
    * Adds artwork for a building to a container positioned at the footprint's top corner.
    * Uses the AI/painted sprite when one loaded, otherwise the procedural drawing.
    */
-  private addBuildingVisual(container: Phaser.GameObjects.Container, type: BuildingType, rotation: Rotation, alpha: number): ArtAnchors {
+  private addBuildingVisual(
+    container: Phaser.GameObjects.Container,
+    type: BuildingType,
+    rotation: Rotation,
+    alpha: number,
+  ): ArtAnchors & { sprite?: boolean } {
     const choice = buildingChoice(this.art, type, rotation);
     if (!choice) {
       const g = this.add.graphics();
@@ -342,15 +347,18 @@ export class CityScene extends Phaser.Scene {
     };
     const fx = entry.effects ?? {};
     return {
-      chimney: fx.chimney && at(fx.chimney),
-      orb: fx.orb && at(fx.orb),
+      chimney: fx.chimney ? at(fx.chimney) : undefined,
+      orb: fx.orb ? at(fx.orb) : undefined,
       windows: fx.windows?.map(at),
-      top: { x: centre.x, y: img.getTopCenter().y + 6 },
+      wheel: fx.wheel ? at(fx.wheel) : undefined,
+      // Measured top of the painted pixels (art-meta.json) or the manifest reference.
+      top: entry.top ? at(entry.top) : { x: centre.x, y: img.getTopCenter().y + 6 },
+      sprite: true,
     };
   }
 
   /** Subtle per-building life: smoke, flickering windows, waving crops, wheels, orbs. */
-  private animate(type: BuildingType, c: Phaser.GameObjects.Container, a: ArtAnchors): (() => void)[] {
+  private animate(type: BuildingType, c: Phaser.GameObjects.Container, a: ArtAnchors & { sprite?: boolean }): (() => void)[] {
     const cleanups: (() => void)[] = [];
     const glow = (pt: { x: number; y: number }, tint: number, scale: number) => {
       const img = this.add.image(pt.x, pt.y, 'mote').setTint(tint).setScale(scale).setBlendMode(Phaser.BlendModes.ADD);
@@ -403,7 +411,27 @@ export class CityScene extends Phaser.Scene {
       cleanups.push(() => timer.remove());
     }
 
-    if (a.wheel) {
+    if (a.wheel && a.sprite) {
+      // Painted sawmills keep their own blade; add drifting sawdust instead of drawing one.
+      const wheel = a.wheel;
+      const timer = this.time.addEvent({
+        delay: 420,
+        loop: true,
+        callback: () => {
+          const s = this.add.image(wheel.x, wheel.y, 'mote').setTint(0xe8c48a).setScale(0.18).setAlpha(0.8);
+          c.add(s);
+          this.tweens.add({
+            targets: s,
+            x: wheel.x + (Math.random() - 0.5) * 16,
+            y: wheel.y + 4 + Math.random() * 6,
+            alpha: 0,
+            duration: 900,
+            onComplete: () => s.destroy(),
+          });
+        },
+      });
+      cleanups.push(() => timer.remove());
+    } else if (a.wheel) {
       const wheel = this.add.graphics({ x: a.wheel.x, y: a.wheel.y });
       wheel.fillStyle(0xd7dbe4, 1).fillCircle(0, 0, 8);
       wheel.fillStyle(0x6b7280, 1).fillCircle(0, 0, 2.5);

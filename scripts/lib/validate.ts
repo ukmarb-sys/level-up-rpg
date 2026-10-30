@@ -3,8 +3,9 @@
  * src/assets/spec.ts. AI-generated images are rarely aligned exactly, so this verifies
  * dimensions, transparency and where the opaque pixels actually sit relative to the footprint.
  */
-import { ASSET_MANIFEST, type AssetEntry } from '../../src/assets/manifest';
-import { matchArtFiles } from '../../src/assets/resolve';
+import { ASSET_MANIFEST, manifestByFile, type AssetEntry } from '../../src/assets/manifest';
+import { activeEffects, applyMeta, type ArtMeta } from '../../src/assets/meta';
+import { explainUnknownFile, matchArtFiles } from '../../src/assets/resolve';
 import { diamondCorners, GROUND_TOLERANCE, PAD } from '../../src/assets/spec';
 import { decodePng, readImageInfo, type RgbaImage } from './image';
 
@@ -31,13 +32,12 @@ export interface ValidationReport {
 
 const OPAQUE = 16; // alpha above this counts as visible paint
 
-export function validateArt(files: ArtFile[], opts: { strict?: boolean } = {}): ValidationReport {
+export function validateArt(files: ArtFile[], opts: { strict?: boolean; meta?: ArtMeta } = {}): ValidationReport {
+  const meta = opts.meta ?? {};
   const issues: Issue[] = [];
   const add = (severity: Severity, file: string, message: string) => issues.push({ severity, file, message });
   const { found, unknown } = matchArtFiles(files.map((f) => f.path));
-  for (const u of unknown) {
-    add('error', u, 'Not in the asset manifest (check folder, filename, rotation suffix and extension: .webp or .png)');
-  }
+  for (const u of unknown) add('error', u, explainUnknownFile(u));
 
   const byKey = new Map<string, ArtFile[]>();
   for (const f of files) {
@@ -50,8 +50,9 @@ export function validateArt(files: ArtFile[], opts: { strict?: boolean } = {}): 
     if (candidates.length > 1) {
       add('warning', candidates.map((c) => c.path).join(' + '), `Both WebP and PNG exist for ${entry.key}; the game uses ${found.get(entry.key)}`);
     }
-    for (const f of candidates) checkFile(entry, f, add);
+    for (const f of candidates) checkFile(applyMeta(entry, meta), f, add, entry.file in meta);
   }
+  checkMeta(meta, found, add);
 
   const missing = ASSET_MANIFEST.filter((e) => !found.has(e.key));
   const missingRequired = missing.filter((e) => e.required).map((e) => `${e.file}.webp|png`);
@@ -60,7 +61,25 @@ export function validateArt(files: ArtFile[], opts: { strict?: boolean } = {}): 
   return { issues, matched: [...found.values()], missingRequired, missingOptional };
 }
 
-function checkFile(entry: AssetEntry, f: ArtFile, add: (s: Severity, file: string, m: string) => void) {
+function checkMeta(meta: ArtMeta, found: Map<string, string>, add: (s: Severity, file: string, m: string) => void) {
+  for (const [file, m] of Object.entries(meta)) {
+    const entry = manifestByFile.get(file);
+    const where = `art-meta.json › ${file}`;
+    if (!entry) {
+      add('error', where, 'Not a manifest file (use paths like "buildings/cottage/cottage_r0", no extension)');
+      continue;
+    }
+    if (!found.has(entry.key)) add('warning', where, 'Metadata for an image that does not exist');
+    const { width, height } = entry.geometry.canvas;
+    const pts = [...(m.top ? [{ name: 'top', point: m.top }] : []), ...activeEffects(m.effects)];
+    for (const { name, point } of pts) {
+      const ok = Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 0 && point.y >= 0 && point.x < width && point.y < height;
+      if (!ok) add('error', where, `${name} point (${point.x}, ${point.y}) is outside the ${width}x${height} canvas`);
+    }
+  }
+}
+
+function checkFile(entry: AssetEntry, f: ArtFile, add: (s: Severity, file: string, m: string) => void, hasMeta = false) {
   const info = readImageInfo(f.data);
   if (!info) return add('error', f.path, 'Unreadable or unsupported image (use PNG or WebP)');
   const { canvas, footprint } = entry.geometry;
@@ -81,7 +100,34 @@ function checkFile(entry: AssetEntry, f: ArtFile, add: (s: Severity, file: strin
   const img = decodePng(f.data);
   if (!img) return add('error', f.path, 'Could not decode PNG');
   if (entry.kind === 'terrain') checkTerrain(entry, img, f.path, add);
-  else checkObject(entry, img, f.path, add);
+  else {
+    checkObject(entry, img, f.path, add);
+    checkPoints(entry, img, f.path, add, hasMeta);
+  }
+}
+
+/** Top/effect points must sit on (or right next to) painted pixels of this image. */
+function checkPoints(entry: AssetEntry, img: RgbaImage, file: string, add: (s: Severity, file: string, m: string) => void, hasMeta: boolean) {
+  if (entry.kind !== 'building') return;
+  if (!hasMeta) {
+    add('warning', file, `No art-meta.json entry: reference top/effect points are used. Run: npm run art:import -- --measure ${entry.file.split('/').pop()}`);
+  }
+  const { width: W, height: H } = img;
+  const near = (p: { x: number; y: number }, r = 6) => {
+    for (let y = Math.max(0, Math.round(p.y) - r); y <= Math.min(H - 1, Math.round(p.y) + r); y++)
+      for (let x = Math.max(0, Math.round(p.x) - r); x <= Math.min(W - 1, Math.round(p.x) + r); x++) if (img.alpha(x, y) > OPAQUE) return true;
+    return false;
+  };
+  for (const { name, point } of activeEffects(entry.effects)) {
+    if (!near(point)) add('warning', file, `${name} effect point (${point.x}, ${point.y}) is over transparent pixels; effects would float in the air`);
+  }
+  if (entry.top) {
+    let minY = -1;
+    for (let y = 0; y < H && minY < 0; y++) for (let x = 0; x < W; x++) if (img.alpha(x, y) > OPAQUE) { minY = y; break; }
+    if (minY >= 0 && Math.abs(entry.top.y - minY) > 16) {
+      add('warning', file, `Top point y=${entry.top.y} but the art's highest pixel is y=${minY}; re-run art:import -- --measure`);
+    }
+  }
 }
 
 function checkTerrain(entry: AssetEntry, img: RgbaImage, file: string, add: (s: Severity, file: string, m: string) => void) {

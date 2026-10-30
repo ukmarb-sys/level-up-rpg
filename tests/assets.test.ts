@@ -145,38 +145,13 @@ it('building footprints in the manifest match the gameplay catalogue', () => {
 });
 
 describe('docs/ASSET_SPEC.md stays in sync with the manifest', () => {
-  it('lists the correct canvas, anchor and front corner for every file it names', async () => {
+  it('embeds exactly the generated reference tables', async () => {
     const { readFileSync } = await import('node:fs');
+    const { assetTables } = await import('../scripts/lib/table');
     const doc = readFileSync(new URL('../docs/ASSET_SPEC.md', import.meta.url), 'utf8');
-    const section = doc.slice(doc.indexOf('## 6. Exact files'), doc.indexOf('## 7.'));
-    const rows = section.split('\n').filter((l) => /^\| `/.test(l));
-    const toFile = (name: string) => {
-      const short = /^([a-zA-Z]+)_r(\d)$/.exec(name);
-      return short ? `buildings/${short[1]}/${name}` : name;
-    };
-    const checked = new Set<string>();
-    for (const row of rows) {
-      const cells = row.split('|').map((c) => c.trim());
-      const files = [...cells[1].matchAll(/`([^`]+)`/g)].map((m) => toFile(m[1]));
-      const size = /(\d+) × (\d+)/.exec(row)!;
-      const pts = [...row.matchAll(/\((\d+), (\d+)\)/g)].map((m) => ({ x: +m[1], y: +m[2] }));
-      for (const f of files) {
-        const e = ASSET_MANIFEST.find((x) => x.file === f);
-        expect(e, f).toBeDefined();
-        expect(e!.geometry.canvas, f).toEqual({ width: +size[1], height: +size[2] });
-        const c = diamondCorners(e!.geometry);
-        const front = { x: c.bottom.x, y: c.bottom.y };
-        if (pts.length === 2) {
-          expect(e!.geometry.anchor, f).toEqual(pts[0]);
-          expect(front, f).toEqual(pts[1]);
-        } else if (pts.length === 1) {
-          // Priority 3 lists only the front corner; prop/terrain rows list only the anchor.
-          expect([front, e!.geometry.anchor], f).toContainEqual(pts[0]);
-        }
-        checked.add(f);
-      }
-    }
-    // Every manifest entry must appear in the table.
-    expect(checked.size).toBe(ASSET_MANIFEST.length);
+    const m = /<!-- asset-tables:start[^>]*-->\n([\s\S]*?)\n<!-- asset-tables:end -->/.exec(doc);
+    expect(m, 'table markers missing').toBeTruthy();
+    expect(m![1]).toBe(assetTables());
+    for (const e of ASSET_MANIFEST) expect(doc).toContain(`\`${e.file}.png\``);
   });
 });

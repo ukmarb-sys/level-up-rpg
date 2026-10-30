@@ -69,11 +69,16 @@ is used for placed buildings and for the preview:
       footprint's width and depth, which is exactly what a quarter turn does.
 2. **Sprite path.** `makeSprite` creates an image whose origin is the manifest anchor (the
    ground centre of the footprint diamond), scaled to `1/SOURCE_SCALE` (0.25). It is placed at
-   the footprint centre inside the building's container, with a soft contact shadow below. If
-   the manifest lists effect points (chimney, orb, windows), smoke and glows attach there.
+   the footprint centre inside the building's container, with a soft contact shadow below.
+   Effects attach to the sprite's points: manifest reference values, overridden per file by
+   `src/assets/art/art-meta.json` (which `npm run art:import` writes). These cover chimney
+   smoke, the orb glow with runes, window glow and sawdust at the saw blade. A `null` point
+   switches that effect off. Points are mirrored along with the image.
 3. **Fallback path.** If no art is available, `drawBuilding` (`src/game/art.ts`) draws the
-   original procedural building from isometric primitives (boxes, gable roofs, spires). This
-   path also provides the animation anchors (chimney smoke, crop sway, saw blade, orb).
+   original procedural building from isometric primitives (boxes, gable roofs, spires). Its
+   animation anchors (chimney smoke, crop sway, saw blade, orb) come from
+   `proceduralAnchors` in `src/assets/geometry.ts`, the same pure function the manifest uses
+   for its reference points.
 
 The container sits at the footprint's top corner for both paths. That means placement, the
 pop-in tween, selection, movement and demolition code are shared.
@@ -91,13 +96,17 @@ Each prop uses its sprite if present, otherwise `drawProp`.
 ## Selection feedback
 
 A selected building gets a soft gold footprint fill, a glow outline (drawn just below the
-building, so the building itself is never covered) and a bobbing marker above its top anchor.
+building, so the building itself is never covered) and a bobbing marker above its top point.
+For procedural buildings that point comes from `proceduralAnchors`. For sprites it's the
+measured top in `art-meta.json`, or the manifest's reference value when no metadata exists.
 The bottom action bar shows its footprint, its production or description, and its actions.
 
 ## Asset loading
 
-`queueArt` (`src/game/assets.ts`) runs in `CityScene.preload`. Vite's `import.meta.glob`
-bundles only the image files that exist under `src/assets/art`:
+`queueArt` (`src/game/assets.ts`) runs in `CityScene.preload`. Vite's
+`import.meta.glob('../assets/art/**/*.{webp,png}')` bundles only the image files that exist
+under `src/assets/art`. The pattern is case-sensitive, and `matchArtFiles` matches the same way,
+so the validator and the game always agree on which files load:
 - missing art costs nothing and produces no network 404s;
 - URLs automatically include the GitHub Pages base path and a content hash.
 

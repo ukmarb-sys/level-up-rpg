@@ -1,4 +1,4 @@
-/** Writes tiny RGBA PNGs for tests (synthetic shapes only — never shipped as artwork). */
+/** RGBA PNG encoder (used by the art importer and to build synthetic test fixtures). */
 import { deflateSync } from 'node:zlib';
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
@@ -58,4 +58,39 @@ export function inPoly(x: number, y: number, pts: { x: number; y: number }[]) {
     }
   }
   return true;
+}
+
+/** Encodes a straight-alpha RGBA buffer (width * height * 4 bytes) as an 8-bit RGBA PNG. */
+export function encodeRgba(width: number, height: number, data: Uint8Array): Buffer {
+  return encodePng(width, height, (x, y) => {
+    const i = (y * width + x) * 4;
+    return data[i + 3] ? [data[i], data[i + 1], data[i + 2], data[i + 3]] : null;
+  });
+}
+
+/**
+ * Low-level PNG writer for arbitrary colour types/bit depths (unfiltered rows). Used by tests
+ * to reproduce the variants image tools export (palette + tRNS, grey+alpha, 16-bit, ...).
+ */
+export function encodeRawPng(
+  width: number,
+  height: number,
+  colorType: number,
+  depth: number,
+  rows: Buffer[],
+  extra: { type: string; data: Buffer }[] = [],
+): Buffer {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = depth;
+  ihdr[9] = colorType;
+  const raw = Buffer.concat(rows.map((r) => Buffer.concat([Buffer.from([0]), r])));
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr),
+    ...extra.map((c) => chunk(c.type, c.data)),
+    chunk('IDAT', deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
 }

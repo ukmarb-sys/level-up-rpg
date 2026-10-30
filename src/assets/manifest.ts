@@ -7,16 +7,28 @@
  */
 import { BUILDING_ORDER, BUILDINGS } from '../core/buildings';
 import type { BuildingType, Rotation } from '../core/types';
-import { objectGeometry, tileGeometry, type SpriteGeometry } from './spec';
+import { isoPoint } from '../game/iso';
+import { proceduralAnchors, type Pt } from './geometry';
+import { objectGeometry, SOURCE_SCALE, tileGeometry, type SpriteGeometry } from './spec';
 
 export type AssetKind = 'building' | 'terrain' | 'prop';
 
-/** Effect attachment points in source px (same space as `anchor`). All optional. */
+/**
+ * Effect attachment points in source px (same space as `anchor`). All optional; `null` in
+ * art-meta.json explicitly disables an effect for a painted sprite.
+ */
 export interface EffectPoints {
-  chimney?: { x: number; y: number };
-  orb?: { x: number; y: number };
-  windows?: { x: number; y: number }[];
+  /** Chimney mouth: smoke rises from here. */
+  chimney?: Pt | null;
+  /** Magic orb centre: glow, bob and orbiting runes. */
+  orb?: Pt | null;
+  /** Lit windows: warm flickering glow. */
+  windows?: Pt[];
+  /** Saw blade centre: sawdust puffs (sprites) / spinning blade (procedural). */
+  wheel?: Pt | null;
 }
+
+export const EFFECT_NAMES = ['chimney', 'orb', 'windows', 'wheel'] as const;
 
 export interface AssetEntry {
   /** Phaser texture key. */
@@ -29,6 +41,12 @@ export interface AssetEntry {
   required: boolean;
   /** Human description used in docs and validation messages. */
   description: string;
+  /**
+   * Highest point of the artwork in source px, used for the selection marker. For buildings
+   * this is a reference value; the importer measures the real one into art-meta.json.
+   */
+  top?: Pt;
+  /** Reference effect points; overridden per file by art-meta.json. */
   effects?: EffectPoints;
 }
 
@@ -51,6 +69,30 @@ const BUILDING_BRIEF: Record<BuildingType, string> = {
 
 export const buildingKey = (type: BuildingType, rotation: Rotation) => `bld-${type}-r${rotation}`;
 
+/** Converts a container-local world point (origin = footprint top corner) to sprite source px. */
+export function worldToSource(g: SpriteGeometry, p: Pt): Pt {
+  const centre = isoPoint(g.footprint.w / 2, g.footprint.d / 2);
+  return {
+    x: Math.round(g.anchor.x + (p.x - centre.x) * SOURCE_SCALE),
+    y: Math.round(g.anchor.y + (p.y - centre.y) * SOURCE_SCALE),
+  };
+}
+
+/**
+ * Reference top/effect points for a building sprite: the procedural building's own anchors
+ * expressed in that sprite's source pixels. Art painted to the reference proportions lines up.
+ */
+export function referencePoints(type: BuildingType, rotation: Rotation, g: SpriteGeometry): { top: Pt; effects: EffectPoints } {
+  const a = proceduralAnchors(type, rotation);
+  const conv = (p: Pt) => worldToSource(g, p);
+  const effects: EffectPoints = {};
+  if (a.chimney) effects.chimney = conv(a.chimney);
+  if (a.orb) effects.orb = conv(a.orb);
+  if (a.windows) effects.windows = a.windows.map(conv);
+  if (a.wheel) effects.wheel = conv(a.wheel);
+  return { top: conv(a.top), effects };
+}
+
 /** Footprint a building occupies at a rotation (mirrors core/grid.ts footprintSize). */
 export function buildingFootprint(type: BuildingType, rotation: Rotation) {
   const def = BUILDINGS[type];
@@ -62,11 +104,13 @@ function buildingEntries(): AssetEntry[] {
   for (const type of BUILDING_ORDER) {
     for (const rotation of [0, 1, 2, 3] as Rotation[]) {
       const { w, d } = buildingFootprint(type, rotation);
+      const geometry = objectGeometry(w, d, BUILDING_CANVAS_HEIGHT[type]);
       out.push({
         key: buildingKey(type, rotation),
         kind: 'building',
         file: `buildings/${type}/${type}_r${rotation}`,
-        geometry: objectGeometry(w, d, BUILDING_CANVAS_HEIGHT[type]),
+        geometry,
+        ...referencePoints(type, rotation, geometry),
         // r0 is enough for every rotation (see resolve.ts); r1-r3 add true side/back views.
         required: rotation === 0,
         description: `${BUILDING_BRIEF[type]} — rotation ${rotation} (${w}x${d} tiles)`,

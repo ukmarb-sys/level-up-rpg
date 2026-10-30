@@ -4,7 +4,10 @@
  */
 import Phaser from 'phaser';
 import { ASSET_MANIFEST, manifestByKey, terrainKey, TERRAIN_VARIANTS, type AssetEntry } from '../assets/manifest';
+import { applyMeta, type ArtMeta } from '../assets/meta';
+import artMeta from '../assets/art/art-meta.json';
 import { matchArtFiles, resolveBuildingSprite, resolveTerrainKey, type SpriteChoice } from '../assets/resolve';
+export { effectPoint } from '../assets/resolve';
 import { SOURCE_SCALE } from '../assets/spec';
 import type { BuildingType, Rotation } from '../core/types';
 
@@ -35,7 +38,10 @@ export function queueArt(scene: Phaser.Scene): LoadedArt {
   const has = (key: string) => found.has(key) && !failed.includes(key) && scene.textures.exists(key);
   return {
     has,
-    entry: (key) => manifestByKey.get(key),
+    entry: (key) => {
+      const e = manifestByKey.get(key);
+      return e && applyMeta(e, artMeta as ArtMeta);
+    },
     get terrainKeys() {
       return Array.from({ length: TERRAIN_VARIANTS }, (_, i) => terrainKey(i)).filter(has);
     },
@@ -58,12 +64,6 @@ export function makeSprite(scene: Phaser.Scene, art: LoadedArt, choice: SpriteCh
   img.setFlipX(choice.flipX);
   img.setScale(1 / SOURCE_SCALE);
   return img;
-}
-
-/** Converts a manifest effect point (source px) to container-local world px. */
-export function effectPoint(e: AssetEntry, p: { x: number; y: number }, flipX: boolean) {
-  const dx = (p.x - e.geometry.anchor.x) / SOURCE_SCALE;
-  return { x: flipX ? -dx : dx, y: (p.y - e.geometry.anchor.y) / SOURCE_SCALE };
 }
 
 export function buildingChoice(art: LoadedArt, type: BuildingType, rotation: Rotation) {
