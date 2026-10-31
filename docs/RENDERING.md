@@ -9,15 +9,17 @@ Phaser draws objects by `depth` (higher draws later / on top). The scene uses fi
 
 | Depth | Layer | Source |
 | --- | --- | --- |
-| -2000 | Floating-island cliff, strata and roots | `CityScene.drawIsland` (procedural) |
-| -1000 | Ground tiles (playable 20×20 grid + 2-tile scenery ring) | terrain art or procedural textures |
-| -999 | Ley-line rim around the buildable area | procedural |
-| -900 | Ground details (flowers, pebbles, mushrooms) | procedural, inside the grid only |
+| -2000 | Floating-island cliff, strata and roots | `EnvironmentLayer.drawCliff` (procedural) |
+| -1000 | Ground: one seamless grass TileSprite masked to the island (or painted terrain tiles) | `env-grass` / terrain art |
+| -999 | Tone field multiplied over the grass (moss, meadow, forest floor) | procedural canvas |
+| -998 | Ley-line rim around the buildable area | procedural |
+| -900 | Ground details (flowers, clover, moss, pebbles, leaves) | `env-details` atlas |
 | -800 + depth/1000 | Building ground layers (`*_ground.png`: gardens, paths, shadows) | painted art only |
 | -500 / -499 | Construction grid and occupied-tile tint (build mode only) | procedural |
 | ≈ x + y + (w + d)/2 | Buildings, scenery props, selection glow | sprites or procedural fallbacks |
 | 8000 | Placement/move preview ("ghost") | same visuals as buildings, 75% alpha |
-| 9000+ | Floating motes, puffs, selection marker | procedural |
+| 9000 | Ambient: fireflies, floating spores, soft magical glows (additive) | `env-glow` |
+| 9200+ | Puffs, selection marker | procedural |
 
 **Depth sorting.** Buildings and props use `footprintDepth(x, y, w, d) = (x + w/2) + (y + d/2)`,
 the sum of the footprint centre's grid coordinates (`src/game/iso.ts`). In this projection
@@ -36,19 +38,17 @@ ordering.
 
 ## Terrain
 
-- Every tile is one image anchored at its top corner (origin `0.5, 0`).
-- **With artwork:** `src/assets/art/terrain/grass_N` images are scaled to 64×32 world px and
-  tinted towards white (72%), so the painted colours stay dominant and the noise only adds variation.
-- **Without artwork:** four near-white procedural textures (`grass-0..3`) carry tuft detail,
-  and each tile is tinted to its final colour. That colour comes from:
-  - two-octave value noise (moss ↔ lush green),
-  - meadow patches,
-  - a soft "light from the north" gradient,
-  - a little per-tile jitter.
+See [ENVIRONMENT.md](ENVIRONMENT.md) for the full Enchanted Wilderness environment.
 
-  All of it is deterministic (`src/game/noise.ts`), so the island looks the same on every load.
-- No outlines are baked into the tiles. The grid is a separate overlay (below).
-- The logical grid is still exactly 20×20. The 2-tile ring outside it is scenery only: it has
+- **Without terrain artwork (default):** one seamless 512² grass texture (power of two, so it
+  repeats and mipmaps) is drawn as a single TileSprite in world space and masked to the island
+  diamond, so there are no tile seams. A low-resolution tone field (8 world px per pixel, upscaled
+  with bilinear filtering and multiplied over the grass) adds soft moss and meadow patches, shade
+  near the back forest and the darker forest floor of the ring. `groundTone` is a continuous
+  function of position, so the field has no steps or staircase edges.
+- **With artwork:** `src/assets/art/terrain/grass_N` images replace the procedural ground. They
+  are drawn per tile, scaled to 64×32 world px and tinted gently by the same tone field.
+- The logical grid is still exactly 20×20. The 3-tile ring outside it is scenery only: it has
   no tiles in `GameState`, and placement and collision never see it.
 
 ## Construction grid (build mode only)
@@ -86,13 +86,15 @@ pop-in tween, selection, movement and demolition code are shared.
 
 ## Scenery
 
-`layoutProps` (`src/game/props.ts`) places pines, oaks, enchanted trees, rocks, ruins and
-crystals on the ring outside the grid:
-- dense forest along the far edges;
-- only low props along the front edges, so nothing hides buildings;
-- ruins at the left and right corners.
+`layoutProps` (`src/game/props.ts`) places 14 kinds of prop on the 3-tile ring:
+- **Back edges:** layered forest (pine, spruce, fir, oak, mystical and enchanted trees), with
+  undergrowth next to the grid.
+- **Side corners:** ancient ruins, standing stones, mystical trees and crystals.
+- **Front edges:** only low ferns, rocks and glowing plants.
 
-Each prop uses its sprite if present, otherwise `drawProp`.
+Tall props stand only where their silhouette rises away from the grid on screen. A test checks
+this geometrically for every placement. Each prop uses its painted sprite when one exists (see
+the asset manifest), otherwise its frame from the procedural `env-props` atlas.
 
 ## Selection feedback
 

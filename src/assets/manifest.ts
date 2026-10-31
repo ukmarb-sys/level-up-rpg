@@ -175,14 +175,41 @@ function terrainEntries(): AssetEntry[] {
   }));
 }
 
-export type PropType = 'treePine' | 'treeOak' | 'treeEnchanted' | 'rockMossy' | 'ruinPillar' | 'crystalCluster';
+export type PropType =
+  | 'treePine'
+  | 'treeSpruce'
+  | 'treeFir'
+  | 'treeOak'
+  | 'treeEnchanted'
+  | 'treeMystic'
+  | 'bushFern'
+  | 'glowShroom'
+  | 'glowBloom'
+  | 'rockMossy'
+  | 'rockSmall'
+  | 'ruinPillar'
+  | 'standingStone'
+  | 'crystalCluster';
 
+/**
+ * Scenery around the island. Every type has a built-in painted-procedural version; dropping a
+ * painted image at `file` replaces it. `tall` props never stand where they could cover the
+ * buildable grid (see src/game/props.ts).
+ */
 export const PROPS: Record<PropType, { file: string; height: number; tall: boolean; description: string }> = {
   treePine: { file: 'props/tree_pine', height: 512, tall: true, description: 'Dark pine tree of the enchanted forest' },
+  treeSpruce: { file: 'props/tree_spruce', height: 576, tall: true, description: 'Tall narrow spruce, deep blue-green' },
+  treeFir: { file: 'props/tree_fir', height: 480, tall: true, description: 'Broad soft fir with layered boughs' },
   treeOak: { file: 'props/tree_oak', height: 448, tall: true, description: 'Broad oak tree with a rich green canopy' },
   treeEnchanted: { file: 'props/tree_enchanted', height: 480, tall: true, description: 'Twisted tree with violet-blue glowing leaves' },
+  treeMystic: { file: 'props/tree_mystic', height: 512, tall: true, description: 'Weeping mystical tree with lilac-pink canopy and glowing motes' },
+  bushFern: { file: 'props/bush_fern', height: 224, tall: false, description: 'Low fern and leafy undergrowth' },
+  glowShroom: { file: 'props/glow_shroom', height: 224, tall: false, description: 'Cluster of softly glowing teal mushrooms' },
+  glowBloom: { file: 'props/glow_bloom', height: 256, tall: false, description: 'Luminous blue-violet bellflowers' },
   rockMossy: { file: 'props/rock_mossy', height: 256, tall: false, description: 'Moss-covered boulder' },
+  rockSmall: { file: 'props/rock_small', height: 192, tall: false, description: 'Small weathered stones in moss' },
   ruinPillar: { file: 'props/ruin_pillar', height: 448, tall: true, description: 'Broken ancient pillar with gold-inlaid runes' },
+  standingStone: { file: 'props/standing_stone', height: 448, tall: true, description: 'Ancient standing stone with faint glowing runes' },
   crystalCluster: { file: 'props/crystal_cluster', height: 288, tall: false, description: 'Cluster of violet-blue magic crystals' },
 };
 export const PROP_ORDER = Object.keys(PROPS) as PropType[];
