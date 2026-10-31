@@ -299,6 +299,20 @@ export function importObject(source: Raster, baseEntry: AssetEntry, opts: Object
       manual.push(name);
     }
   }
+  // --effect-src: points in input pixels, mapped through crop → mirror → scale → offset.
+  const srcToOut = (p: Pt): Pt => {
+    const x = mirrored ? b0.maxX - p.x : p.x - b0.minX;
+    return { x: Math.round(ox + x * s), y: Math.round(oy + (p.y - b0.minY) * s) };
+  };
+  const src = opts.effectsSource ?? {};
+  for (const name of ['chimney', 'orb', 'wheel'] as const) {
+    const p = src[name];
+    if (!p) continue;
+    effects[name] = srcToOut(p);
+    const i = manual.indexOf(name);
+    if (i >= 0) manual.splice(i, 1);
+  }
+  if (src.windows) effects.windows = src.windows.map(srcToOut);
   for (const [name, value] of Object.entries(opts.effects ?? {})) {
     (effects as Record<string, unknown>)[name] = value;
     const i = manual.indexOf(name);

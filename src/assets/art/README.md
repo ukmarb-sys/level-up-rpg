@@ -17,8 +17,9 @@ File names, sizes and footprints are listed in `docs/ASSET_SPEC.md`. Extensions 
 lowercase (`.png` / `.webp`), and paths are case-sensitive. Anything missing falls back to the
 procedural art, so the game always runs.
 
-Shipped so far: the cottage (`buildings/cottage/cottage_r0`) with the mystic garden as its ground
-layer, and six painted trees (`props/tree_pine`, `tree_spruce`, `tree_fir`, `tree_oak`,
+Shipped so far: all four buildings at rotation r0 (the cottage with the mystic garden as its ground
+layer, the farm, the sawmill and the mage tower; r1–r3 are mirrored/reused r0 until directional
+art exists), and six painted trees (`props/tree_pine`, `tree_spruce`, `tree_fir`, `tree_oak`,
 `tree_enchanted`, `tree_mystic`). At startup the game packs all painted props and the procedural
 prop atlas into one texture, so the forest stays in one draw batch on Android. Raw sources and the exact import command are in `art-source/`. Each sprite has a PNG master
 (pixel-validated) and a WebP (shipped, from `npm run art:webp`).

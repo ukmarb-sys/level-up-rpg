@@ -9,6 +9,10 @@ folder is bundled into the game. The game only loads the processed files in `src
 | `raw/levelup_mystic_garden.png` (686×1024) | `src/assets/art/buildings/cottage/cottage_r0_ground.{png,webp}` | Decorative ground layer of the cottage, placed on the tile behind-right of it. It never blocks that tile. |
 | `raw/trees/tree_{pine,spruce,fir,oak,enchanted,mystic}.png` (320 × 512/576/480/448/480/512) | `src/assets/art/props/tree_*.{png,webp}` | From `levelup_trees_pack.zip`. Delivered at the exact spec canvas with the trunk on the anchor, so they're kept pixel for pixel. Import cleans the generator alpha (haze, 1–5% of the body semi-transparent) and removes slivers of neighbouring trees left by sprite-sheet slicing (fir, oak, enchanted, mystic). |
 
+| `raw/buildings/farm.png` (854×788) | `src/assets/art/buildings/farm/farm_r0.{png,webp}` | From `levelup_buildings_pack.zip`. Farmhouse, wheat field, vegetable rows, fence and coop on one grass base, fitted to the **2×3** footprint (the logical footprint is authoritative; nothing was resized in gameplay). Canvas grown to 704×544 for the smoke. |
+| `raw/buildings/sawmill.png` (789×779) | `src/assets/art/buildings/sawmill/sawmill_r0.{png,webp}` | Fitted to the **2×1** footprint. A sliver of the neighbouring image on the left was removed. The sawdust effect is anchored where the blade meets the timber. |
+| `raw/buildings/mage_tower.png` (707×788) | `src/assets/art/buildings/mageTower/mageTower_r0.{png,webp}` | Fitted to the **2×2** footprint. Imported with `--keep-islands` so the halo's sparkles survive. The crystal is detected as the orb; window glows are set by hand (auto-detection also picked the gold emblem on the banner). |
+
 Reproduce the committed sprites exactly. `tests/realArt.test.ts` checks this pixel for pixel.
 
 ```bash
@@ -26,6 +30,17 @@ The trees need no options (spec-exact canvases are detected automatically):
 for t in pine spruce fir oak enchanted mystic; do
   npm run art:import -- art-source/raw/trees/tree_$t.png --as tree_$t
 done
+npm run art:webp
+```
+
+The buildings (`tests/buildingArt.test.ts` checks these pixel for pixel too):
+
+```bash
+npm run art:import -- art-source/raw/buildings/farm.png --as farm_r0
+npm run art:import -- art-source/raw/buildings/sawmill.png --as sawmill_r0 --effect-src wheel=438,505
+npm run art:import -- art-source/raw/buildings/mage_tower.png --as mageTower_r0 --keep-islands \
+  --effect window=332,632 --effect window=255,642 --effect window=170,731 \
+  --effect window=184,854 --effect window=302,880
 npm run art:webp
 ```
 

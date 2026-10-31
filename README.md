@@ -66,7 +66,7 @@ Tech: React 19, TypeScript, Vite, Phaser 3. No paid APIs or secrets.
 The island is an "Enchanted Wilderness": seamless grass with moss and meadow variation, a
 layered forest with mystical trees, ruins and glowing plants, and gentle fireflies. It is all
 generated in code and tuned for Android: add `?perf` to the URL to see FPS and draw calls, or
-`?quality=low|high` to force a tier. See [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
+`?quality=low|high` to force a tier. See [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md). Painted buildings: [docs/BUILDING_ART.md](docs/BUILDING_ART.md).
 
 ### Artwork
 

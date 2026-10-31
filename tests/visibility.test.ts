@@ -14,12 +14,20 @@ import { BASE_MIN_ZOOM, initialView, OPENING_MAX_ZOOM } from '../src/game/sprite
 import { decodeImage } from '../scripts/lib/image';
 
 describe('UI icons use the painted artwork', () => {
-  it('finds the bundled painted cottage and keeps vector icons for buildings without art', () => {
+  it('uses the bundled painted art for every building icon (vector icons are only a fallback)', () => {
     expect(artUrl(buildingKey('cottage', 0))).toMatch(/cottage_r0\.webp/);
-    expect(paintedIcon('cottage')).not.toBeNull();
-    expect(paintedIcon('farm')).toBeNull();
-    expect(paintedIcon('sawmill')).toBeNull();
-    expect(paintedIcon('mageTower')).toBeNull();
+    for (const type of ['cottage', 'farm', 'sawmill', 'mageTower'] as const) {
+      const icon = paintedIcon(type);
+      expect(icon, type).not.toBeNull();
+      expect(icon!.url).toMatch(new RegExp(`${type}_r0\\.webp`));
+      // the crop covers the whole logical footprint and the painted top
+      const e = artEntry(buildingKey(type, 0))!;
+      const l = logicalCorners(e.geometry);
+      expect(icon!.crop.x).toBeLessThanOrEqual(l.left.x);
+      expect(icon!.crop.x + icon!.crop.size).toBeGreaterThanOrEqual(l.right.x);
+      expect(icon!.crop.y).toBeLessThanOrEqual(e.top!.y);
+      expect(icon!.crop.y + icon!.crop.size).toBeGreaterThanOrEqual(l.bottom.y);
+    }
   });
 
   it('crops the icon to the house: a square around the logical tile from the painted top down', () => {

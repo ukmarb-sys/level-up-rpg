@@ -58,6 +58,81 @@
       "groundScale": "match"
     }
   },
+  "buildings/farm/farm_r0": {
+    "height": 544,
+    "top": {
+      "x": 526,
+      "y": 35
+    },
+    "effects": {},
+    "import": {
+      "source": "farm.png",
+      "fill": 0.96,
+      "offsetY": 0,
+      "mirrored": false,
+      "scale": 0.7797
+    }
+  },
+  "buildings/mageTower/mageTower_r0": {
+    "top": {
+      "x": 294,
+      "y": 401
+    },
+    "effects": {
+      "windows": [
+        {
+          "x": 332,
+          "y": 632
+        },
+        {
+          "x": 255,
+          "y": 642
+        },
+        {
+          "x": 170,
+          "y": 731
+        },
+        {
+          "x": 184,
+          "y": 854
+        },
+        {
+          "x": 302,
+          "y": 880
+        }
+      ],
+      "orb": {
+        "x": 292,
+        "y": 459
+      }
+    },
+    "import": {
+      "source": "mage_tower.png",
+      "fill": 0.96,
+      "offsetY": 0,
+      "mirrored": false,
+      "scale": 0.8416
+    }
+  },
+  "buildings/sawmill/sawmill_r0": {
+    "top": {
+      "x": 307,
+      "y": 85
+    },
+    "effects": {
+      "wheel": {
+        "x": 239,
+        "y": 311
+      }
+    },
+    "import": {
+      "source": "sawmill.png",
+      "fill": 0.96,
+      "offsetY": 0,
+      "mirrored": false,
+      "scale": 0.5327
+    }
+  },
   "props/tree_enchanted": {
     "top": {
       "x": 192,
