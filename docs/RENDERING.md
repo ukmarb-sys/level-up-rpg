@@ -142,3 +142,23 @@ exactly as before: at the centre of the tiles the building occupies.
 - **Zoom limit:** `maxZoomFor` caps zoom at `SOURCE_SCALE / devicePixelRatio` when painted art is
   loaded.
 
+## Painted art in the UI, opening camera and stale pages
+
+These three behaviours make sure a newly imported sprite is actually *visible* to players:
+
+- **UI icons:** `BuildingIcon` (build menu, action bar) uses the same bundled sprite as the map
+  (`src/assets/artUrls.ts`), cropped to the building by `buildingIconCrop`: the logical tile,
+  from the painted top down to the front corner. Buildings without painted art keep their
+  vector icon.
+- **Opening camera:** `initialView` (`src/game/spriteRules.ts`) centres on the player's
+  buildings, or the map centre for a new realm. Its zoom shows about six tiles across a phone
+  (a 1×1 building is about 65 CSS px wide), capped at the previous desktop zoom. Pinch out to see
+  the whole island.
+- **Stale pages:** GitHub Pages caches `index.html` for about 10 minutes, and home-screen web apps
+  can keep a page alive longer, so a player may still run the previous build after a deploy.
+  - Every build carries an id (the commit SHA, shown on the title screen as `build abc1234`) and
+    emits `version.json`.
+  - The app fetches it with `cache: 'no-store'` on start and whenever it returns to the
+    foreground. If a different build is deployed, it shows "A new version of the realm is
+    available" with a Reload button, which saves before reloading.
+

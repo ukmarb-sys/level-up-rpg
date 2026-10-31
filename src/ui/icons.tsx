@@ -1,4 +1,5 @@
 /** Original inline SVG icons for resources and buildings. */
+import { iconBackground, paintedIcon } from '../assets/icon';
 import type { BuildingType, ResourceType } from '../core/types';
 
 export function ResourceIcon({ type, size = 22 }: { type: ResourceType; size?: number }) {
@@ -37,7 +38,26 @@ export function ResourceIcon({ type, size = 22 }: { type: ResourceType; size?: n
   }
 }
 
+/**
+ * Building icon: the painted sprite the map uses (cropped to the building) when that artwork
+ * exists, otherwise the built-in vector icon.
+ */
 export function BuildingIcon({ type, size = 48 }: { type: BuildingType; size?: number }) {
+  const painted = paintedIcon(type);
+  if (painted) {
+    return (
+      <span
+        className="painted-icon"
+        data-painted={type}
+        aria-hidden
+        style={{ width: size, height: size, backgroundImage: `url("${painted.url}")`, ...iconBackground(painted.crop, size) }}
+      />
+    );
+  }
+  return <VectorBuildingIcon type={type} size={size} />;
+}
+
+function VectorBuildingIcon({ type, size = 48 }: { type: BuildingType; size?: number }) {
   const common = { width: size, height: size, viewBox: '0 0 48 48', 'aria-hidden': true } as const;
   switch (type) {
     case 'cottage':
