@@ -4,6 +4,7 @@ import { hasSave } from './core/save';
 import { installModules } from './modules';
 import { GameScreen } from './ui/GameScreen';
 import { StartScreen } from './ui/StartScreen';
+import { UpdateBanner, useStaleBuild } from './ui/UpdateBanner';
 
 export function App() {
   const [store] = useState(() => GameStore.restore());
@@ -24,28 +25,41 @@ export function App() {
     };
   }, [store]);
 
+  const stale = useStaleBuild();
+  const reload = () => {
+    store.saveNow(); // never lose progress when reloading for an update
+    window.location.reload();
+  };
+  const banner = stale ? <UpdateBanner onReload={reload} /> : null;
+
   if (screen === 'start') {
     return (
-      <StartScreen
-        hasSave={saveExists}
-        buildingCount={store.state.buildings.length}
-        onContinue={() => setScreen('game')}
-        onNew={() => {
-          store.reset();
-          store.saveNow();
-          setScreen('game');
-        }}
-      />
+      <>
+        {banner}
+        <StartScreen
+          hasSave={saveExists}
+          buildingCount={store.state.buildings.length}
+          onContinue={() => setScreen('game')}
+          onNew={() => {
+            store.reset();
+            store.saveNow();
+            setScreen('game');
+          }}
+        />
+      </>
     );
   }
   return (
-    <GameScreen
-      store={store}
-      onExit={() => {
-        store.saveNow();
-        setSaveExists(hasSave());
-        setScreen('start');
-      }}
-    />
+    <>
+      {banner}
+      <GameScreen
+        store={store}
+        onExit={() => {
+          store.saveNow();
+          setSaveExists(hasSave());
+          setScreen('start');
+        }}
+      />
+    </>
   );
 }

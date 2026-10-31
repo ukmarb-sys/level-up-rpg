@@ -18,6 +18,7 @@ import {
   drawnVisualRect,
   groundDecalDepth,
   HIT_ALPHA,
+  initialView,
   maxZoomFor,
   resolveTap,
   spritePixelAt,
@@ -122,9 +123,16 @@ export class CityScene extends Phaser.Scene {
 
     const cam = this.cameras.main;
     const size = this.store.state.mapSize;
-    const centre = isoPoint(size / 2, size / 2);
+    // Open on the player's buildings at a zoom where they are clearly visible on a phone.
+    const view = initialView(
+      this.store.state.buildings.map((b) => ({ x: b.x, y: b.y, ...footprintSize(b.type, b.rotation) })),
+      size,
+      this.scale.width / this.dpr,
+      TILE_W,
+    );
+    const centre = isoPoint(view.center.x, view.center.y);
     cam.centerOn(centre.x, centre.y);
-    this.userZoom = Math.min(1.2, Math.max(MIN_ZOOM, this.scale.width / this.dpr / (size * TILE_W * 0.42)));
+    this.userZoom = view.zoom;
     this.applyZoom();
 
     this.setupInput();

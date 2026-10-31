@@ -23,9 +23,9 @@ describe('file extension and name case', () => {
   });
 
   it('keeps the loader glob and the manifest extensions in sync', () => {
-    const src = readFileSync(new URL('../src/game/assets.ts', import.meta.url), 'utf8');
+    const src = readFileSync(new URL('../src/assets/artUrls.ts', import.meta.url), 'utf8');
     const glob = /import\.meta\.glob\('([^']+)'/.exec(src)![1];
-    expect(glob).toBe(`../assets/art/**/*.{${ART_EXTENSIONS.join(',')}}`);
+    expect(glob).toBe(`./art/**/*.{${ART_EXTENSIONS.join(',')}}`);
     expect(ART_EXTENSIONS.every((e) => e === e.toLowerCase())).toBe(true);
   });
 

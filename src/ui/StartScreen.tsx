@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { BUILD_ID } from '../core/version';
 
 interface Props {
   hasSave: boolean;
@@ -112,6 +113,9 @@ export function StartScreen({ hasSave, buildingCount, onContinue, onNew }: Props
           )}
         </div>
         <p className="start__hint">Tap to build · Drag to pan · Pinch to zoom</p>
+        <p className="start__build" aria-label={`Build ${BUILD_ID}`}>
+          build {BUILD_ID}
+        </p>
       </div>
     </main>
   );

@@ -3,21 +3,12 @@
  * turns manifest entries into positioned, anchored, depth-ready sprites.
  */
 import Phaser from 'phaser';
-import { ASSET_MANIFEST, manifestByKey, terrainKey, TERRAIN_VARIANTS, type AssetEntry } from '../assets/manifest';
-import { applyMeta, type ArtMeta } from '../assets/meta';
-import artMeta from '../assets/art/art-meta.json';
-import { matchArtFiles, resolveBuildingSprite, resolveTerrainKey, type SpriteChoice } from '../assets/resolve';
+import { ART_FILES, ART_URLS, artEntry, UNKNOWN_ART_FILES } from '../assets/artUrls';
+import { ASSET_MANIFEST, terrainKey, TERRAIN_VARIANTS, type AssetEntry } from '../assets/manifest';
+import { resolveBuildingSprite, resolveTerrainKey, type SpriteChoice } from '../assets/resolve';
 export { effectPoint } from '../assets/resolve';
 import { SOURCE_SCALE } from '../assets/spec';
 import type { BuildingType, Rotation } from '../core/types';
-
-// Vite resolves this at build time: only files that exist are bundled, so missing art costs
-// nothing and never produces 404s. URLs include the configured base path and a content hash.
-const ART_URLS = import.meta.glob('../assets/art/**/*.{webp,png}', {
-  eager: true,
-  query: '?url',
-  import: 'default',
-}) as Record<string, string>;
 
 export interface LoadedArt {
   has(key: string): boolean;
@@ -31,8 +22,8 @@ export interface LoadedArt {
 
 /** Call from Scene.preload(). Returns a registry that is complete once preload finishes. */
 export function queueArt(scene: Phaser.Scene): LoadedArt {
-  const { found, unknown } = matchArtFiles(Object.keys(ART_URLS));
-  if (unknown.length && import.meta.env.DEV) console.warn('[art] files not in manifest:', unknown);
+  const found = ART_FILES;
+  if (UNKNOWN_ART_FILES.length && import.meta.env.DEV) console.warn('[art] files not in manifest:', UNKNOWN_ART_FILES);
   const failed: string[] = [];
   for (const [key, path] of found) scene.load.image(key, ART_URLS[path]);
   scene.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => failed.push(file.key));
@@ -43,10 +34,7 @@ export function queueArt(scene: Phaser.Scene): LoadedArt {
     get any() {
       return [...found.keys()].some(has);
     },
-    entry: (key) => {
-      const e = manifestByKey.get(key);
-      return e && applyMeta(e, artMeta as ArtMeta);
-    },
+    entry: artEntry,
     get terrainKeys() {
       return Array.from({ length: TERRAIN_VARIANTS }, (_, i) => terrainKey(i)).filter(has);
     },

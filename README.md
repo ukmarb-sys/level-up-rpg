@@ -79,6 +79,9 @@ future systems (quests, coaching, progression, rewards, mysteries) plug in.
 
 ## Deployment
 
+Each build shows its id (the commit SHA) on the title screen. If a newer build has been deployed
+while an old page is still open or cached, the game offers a reload; your progress is saved first.
+
 - `.github/workflows/ci.yml` runs tests and the production build on pull requests and
   on pushes to non-`main` branches.
 - `.github/workflows/deploy.yml` runs on pushes to `main` (or manually): tests, builds

@@ -86,3 +86,29 @@ export function drawnVisualRect(g: SpriteGeometry, flipX: boolean): GridRect {
   const v = g.visual;
   return flipX ? { x: v.y, y: v.x, w: v.d, d: v.w } : { ...v };
 }
+
+/** Tile widths visible across a phone screen at the opening zoom (pinch out to see the island). */
+export const OPENING_TILES_ACROSS = 6;
+/** Opening zoom never exceeds this (desktop/tablet keep their previous framing). */
+export const OPENING_MAX_ZOOM = 1.2;
+
+/**
+ * Where the camera opens: centred on the player's buildings (footprint centres) — or on the
+ * map centre for a new realm — at a zoom where a 1x1 building is clearly visible on a phone.
+ */
+export function initialView(
+  buildings: { x: number; y: number; w: number; d: number }[],
+  mapSize: number,
+  cssWidth: number,
+  tileWidth: number,
+): { center: { x: number; y: number }; zoom: number } {
+  const zoom = Math.min(OPENING_MAX_ZOOM, Math.max(BASE_MIN_ZOOM, cssWidth / (tileWidth * OPENING_TILES_ACROSS)));
+  if (buildings.length === 0) return { center: { x: mapSize / 2, y: mapSize / 2 }, zoom };
+  let sx = 0;
+  let sy = 0;
+  for (const b of buildings) {
+    sx += b.x + b.w / 2;
+    sy += b.y + b.d / 2;
+  }
+  return { center: { x: sx / buildings.length, y: sy / buildings.length }, zoom };
+}
