@@ -14,6 +14,8 @@ import { logicalBounds } from '../../src/assets/geometry';
 import { explainUnknownFile, matchArtFiles, resolveBuildingSprite } from '../../src/assets/resolve';
 import { diamondCorners, GROUND_TOLERANCE, overhangs, PAD } from '../../src/assets/spec';
 import { decodePng, readImageInfo, type RgbaImage } from './image';
+import { TRANSLUCENT_BODY_LIMIT } from './import';
+import { labelComponents, sliceFragments, translucentBodyShare, verticalCuts } from './raster';
 
 /** 'info' = expected, temporary state worth knowing about (e.g. mirrored rotation fallbacks). */
 export type Severity = 'error' | 'warning' | 'info';
@@ -331,6 +333,10 @@ function checkObject(entry: AssetEntry, img: RgbaImage, file: string, add: (s: S
   if (corners.some(([x, y]) => img.alpha(x, y) > OPAQUE)) add('error', file, 'Corners are not transparent — remove the background');
   if (minX < 2 || maxX > W - 3 || minY < 2) add('error', file, `Artwork touches the canvas edge (bbox ${minX},${minY}–${maxX},${maxY}); it is probably cropped`);
 
+  checkOpacity(img, file, add);
+  checkSlicing(img, file, add, entry.kind === 'prop');
+  if (entry.kind === 'prop') return checkPropStance(entry, img, file, add, minX, maxX, maxY);
+
   const c = diamondCorners(g);
   const groundY = H - PAD; // front corner of the footprint
   if (maxY > groundY + GROUND_TOLERANCE) {
@@ -367,5 +373,89 @@ function checkObject(entry: AssetEntry, img: RgbaImage, file: string, add: (s: S
     } else if (Math.abs(lowX - expected) > 96) {
       add('warning', file, `Lowest point is at x≈${Math.round(lowX)}, expected near the front corner x≈${expected}; check orientation`);
     }
+  }
+}
+
+/**
+ * Some generators write noisy alpha (about 215–254) across the whole body, so the art is faintly
+ * see-through in game. `art:import` fixes this; the validator catches files that skipped it.
+ */
+function checkOpacity(img: RgbaImage, file: string, add: (s: Severity, file: string, m: string) => void) {
+  const share = translucentBodyShare(img.width, img.height, img.alpha);
+  if (share > TRANSLUCENT_BODY_LIMIT) {
+    add(
+      'error',
+      file,
+      `${Math.round(share * 100)}% of the body is semi-transparent (alpha < 250), so it looks see-through in game. Import it with npm run art:import to clean the alpha`,
+    );
+  }
+}
+
+/** How far (source px) a prop's lowest point may sit from the anchor before it reads as floating or sunk. */
+export const PROP_STANCE = { above: 24, below: 40, offCentreWarn: 32, offCentreError: 64 };
+
+/**
+ * Props (trees, rocks, ruins) stand ON the ground centre of their tile — the anchor — like the
+ * procedural props they replace. They are usually narrower than the tile, so the building
+ * rules (front corner, footprint span) don't apply.
+ */
+function checkPropStance(
+  entry: AssetEntry,
+  img: RgbaImage,
+  file: string,
+  add: (s: Severity, file: string, m: string) => void,
+  minX: number,
+  maxX: number,
+  maxY: number,
+) {
+  const a = entry.geometry.anchor;
+  const front = entry.geometry.canvas.height - PAD;
+  if (maxY < a.y - PROP_STANCE.above) {
+    add('error', file, `Prop floats: lowest pixel y=${maxY} but it should stand on the anchor (y=${a.y})`);
+  } else if (maxY > a.y + PROP_STANCE.below) {
+    const hint = maxY >= front - 4 ? ' (it looks aligned to the front corner like a building; props stand on the anchor)' : '';
+    add('error', file, `Prop extends ${maxY - a.y}px below its anchor (y=${a.y})${hint}`);
+  }
+  let sum = 0;
+  let n = 0;
+  for (let y = maxY - 3; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      if (img.alpha(x, y) > OPAQUE) {
+        sum += x;
+        n++;
+      }
+    }
+  }
+  const off = Math.round(sum / Math.max(1, n) - a.x);
+  if (Math.abs(off) > PROP_STANCE.offCentreError) {
+    add('error', file, `Prop base is ${off}px from the anchor x=${a.x}; centre the trunk/base on the canvas`);
+  } else if (Math.abs(off) > PROP_STANCE.offCentreWarn) {
+    add('warning', file, `Prop base is ${off}px off centre (anchor x=${a.x}); it may look shifted, especially when mirrored`);
+  }
+}
+
+/** A straight cut this long (source px) on the main artwork is reported. */
+export const CUT_WARN_ROWS = 24;
+
+/** Sprite-sheet slicing: slivers of neighbouring art, and (for props) truncated sides. */
+function checkSlicing(img: RgbaImage, file: string, add: (s: Severity, file: string, m: string) => void, organic: boolean) {
+  const cuts = verticalCuts(img.width, img.height, img.alpha);
+  if (!cuts.length) return;
+  const c = labelComponents(img.width, img.height, img.alpha);
+  const main = c.sizes.indexOf(Math.max(...c.sizes));
+  const slivers = sliceFragments(img.width, img.height, img.alpha, c);
+  if (slivers.length) {
+    add('warning', file, `${slivers.length} detached sliver(s) cut by a straight edge (pieces of a neighbouring sprite?); npm run art:import removes them`);
+  }
+  // Building walls are legitimately vertical; trees, rocks and plants never end in a ruler line.
+  if (!organic) return;
+  for (const k of cuts) {
+    if (k.rows < CUT_WARN_ROWS) continue;
+    if (!((k.side === 'left' && k.x === c.minX[main]) || (k.side === 'right' && k.x === c.maxX[main]))) continue;
+    add(
+      'warning',
+      file,
+      `The artwork ends in a straight vertical cut on its ${k.side} side (x=${k.x}, ${k.rows} px tall): it looks sliced from a sprite sheet and is truncated there. Regenerate with more side margin`,
+    );
   }
 }

@@ -18,5 +18,7 @@ lowercase (`.png` / `.webp`), and paths are case-sensitive. Anything missing fal
 procedural art, so the game always runs.
 
 Shipped so far: the cottage (`buildings/cottage/cottage_r0`) with the mystic garden as its ground
-layer. Raw sources and the exact import command are in `art-source/`. Each sprite has a PNG master
+layer, and six painted trees (`props/tree_pine`, `tree_spruce`, `tree_fir`, `tree_oak`,
+`tree_enchanted`, `tree_mystic`). At startup the game packs all painted props and the procedural
+prop atlas into one texture, so the forest stays in one draw batch on Android. Raw sources and the exact import command are in `art-source/`. Each sprite has a PNG master
 (pixel-validated) and a WebP (shipped, from `npm run art:webp`).

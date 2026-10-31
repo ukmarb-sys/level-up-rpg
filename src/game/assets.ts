@@ -18,6 +18,8 @@ export interface LoadedArt {
   terrainKeys: string[];
   missing: string[];
   failed: string[];
+  /** Records that a loaded texture was moved into an atlas (it still counts as loaded art). */
+  markPacked(key: string): void;
 }
 
 /** Call from Scene.preload(). Returns a registry that is complete once preload finishes. */
@@ -28,9 +30,11 @@ export function queueArt(scene: Phaser.Scene): LoadedArt {
   for (const [key, path] of found) scene.load.image(key, ART_URLS[path]);
   scene.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => failed.push(file.key));
 
-  const has = (key: string) => found.has(key) && !failed.includes(key) && scene.textures.exists(key);
+  const packed = new Set<string>();
+  const has = (key: string) => found.has(key) && !failed.includes(key) && (packed.has(key) || scene.textures.exists(key));
   return {
     has,
+    markPacked: (key: string) => packed.add(key),
     get any() {
       return [...found.keys()].some(has);
     },
@@ -47,10 +51,16 @@ export function queueArt(scene: Phaser.Scene): LoadedArt {
  * Creates an image anchored so that its footprint centre sits at (0,0) of the parent
  * container, which the scene positions at the footprint centre in world space.
  */
-export function makeSprite(scene: Phaser.Scene, art: LoadedArt, choice: SpriteChoice): Phaser.GameObjects.Image {
+export function makeSprite(
+  scene: Phaser.Scene,
+  art: LoadedArt,
+  choice: SpriteChoice,
+  /** Draw from an atlas frame (same size as the canvas) instead of the standalone texture. */
+  atlas?: string,
+): Phaser.GameObjects.Image {
   const e = art.entry(choice.key)!;
   const { canvas, anchor } = e.geometry;
-  const img = scene.add.image(0, 0, choice.key);
+  const img = atlas ? scene.add.image(0, 0, atlas, choice.key) : scene.add.image(0, 0, choice.key);
   // Phaser applies flipX around the origin's mirror, so mirror the anchor too.
   const ax = choice.flipX ? canvas.width - anchor.x : anchor.x;
   img.setOrigin(ax / canvas.width, anchor.y / canvas.height);
@@ -86,6 +96,13 @@ export function lodTextureKey(scene: Phaser.Scene, key: string, factor: 1 | 2 | 
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(src, 0, 0, w, h);
+  // Atlases keep their frames at half size (packed on 4 px boundaries, so they stay exact).
+  const parent = scene.textures.get(from);
+  for (const name of parent.getFrameNames()) {
+    if (name === '__BASE') continue;
+    const f = parent.get(name);
+    tex.add(name, 0, f.cutX / 2, f.cutY / 2, f.cutWidth / 2, f.cutHeight / 2);
+  }
   tex.refresh();
   return lodKey;
 }
