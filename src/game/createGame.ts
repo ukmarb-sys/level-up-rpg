@@ -29,6 +29,8 @@ export function createGame(parent: HTMLElement, store: GameStore): GameHandle {
     scale: { mode: Phaser.Scale.NONE, zoom: 1 / dpr },
     input: { activePointers: 3, touch: { capture: true } },
     disableContextMenu: true,
+    // Mipmaps for power-of-two textures (grass, environment atlases): smooth when zoomed out.
+    render: { mipmapFilter: 'LINEAR_MIPMAP_LINEAR' },
   });
   game.scene.add('city', CityScene, true, { store, dpr });
 
@@ -46,12 +48,69 @@ export function createGame(parent: HTMLElement, store: GameStore): GameHandle {
   };
   const observer = new ResizeObserver(resize);
   observer.observe(parent);
+  const stopPerf = new URLSearchParams(location.search).has('perf') ? perfOverlay(game, parent) : undefined;
 
   return {
     zoomBy: (f) => scene()?.zoomBy(f),
     destroy: () => {
       observer.disconnect();
+      stopPerf?.();
       game.destroy(true);
     },
+  };
+}
+
+/**
+ * Opt-in performance overlay (append ?perf to the URL): FPS, WebGL draw calls and vertices per
+ * frame, display objects and the environment quality tier — for checking real Android phones.
+ */
+function perfOverlay(game: Phaser.Game, parent: HTMLElement): () => void {
+  const el = document.createElement('div');
+  el.style.cssText =
+    'position:absolute;left:8px;top:64px;z-index:40;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.65);color:#c8ffd0;font:11px/1.35 ui-monospace,monospace;pointer-events:none;white-space:pre';
+  parent.appendChild(el);
+  let draws = 0;
+  let verts = 0;
+  let frames = 0;
+  let unwrap: (() => void) | undefined;
+  const wrap = () => {
+    const gl = (game.renderer as Phaser.Renderer.WebGL.WebGLRenderer).gl;
+    if (!gl || unwrap) return;
+    const de = gl.drawElements.bind(gl);
+    const da = gl.drawArrays.bind(gl);
+    gl.drawElements = (m, c, t, o) => {
+      draws++;
+      verts += c;
+      de(m, c, t, o);
+    };
+    gl.drawArrays = (m, f, c) => {
+      draws++;
+      verts += c;
+      da(m, f, c);
+    };
+    unwrap = () => {
+      gl.drawElements = de;
+      gl.drawArrays = da;
+    };
+  };
+  const onPost = () => frames++;
+  game.events.on(Phaser.Core.Events.POST_RENDER, onPost);
+  const timer = setInterval(() => {
+    wrap();
+    const scene = game.scene.getScene('city') as Phaser.Scene & { perfInfo?: () => string };
+    const f = Math.max(1, frames);
+    el.textContent =
+      `fps ${game.loop.actualFps.toFixed(0)}\n` +
+      `draws/frame ${(draws / f).toFixed(0)}\n` +
+      `verts/frame ${Math.round(verts / f)}\n` +
+      `objects ${scene?.children?.length ?? 0}\n` +
+      (scene?.perfInfo?.() ?? '');
+    draws = verts = frames = 0;
+  }, 500);
+  return () => {
+    clearInterval(timer);
+    game.events.off(Phaser.Core.Events.POST_RENDER, onPost);
+    unwrap?.();
+    el.remove();
   };
 }
