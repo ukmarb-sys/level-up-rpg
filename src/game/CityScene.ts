@@ -54,6 +54,8 @@ interface BuildingView {
 interface LodImage {
   img: Phaser.GameObjects.Image;
   key: string;
+  /** Atlas frame, when the image draws from one. */
+  frame?: string;
   scaleX: number;
   scaleY: number;
 }
@@ -251,7 +253,8 @@ export class CityScene extends Phaser.Scene {
 
   /** Registers an image for level-of-detail texture switching as the camera zooms. */
   private trackLod<T extends Phaser.GameObjects.Image>(img: T, key: string): T {
-    const rec: LodImage = { img, key, scaleX: img.scaleX, scaleY: img.scaleY };
+    const frame = img.frame.name === '__BASE' ? undefined : img.frame.name;
+    const rec: LodImage = { img, key, frame, scaleX: img.scaleX, scaleY: img.scaleY };
     this.lodImages.add(rec);
     img.once(Phaser.GameObjects.Events.DESTROY, () => this.lodImages.delete(rec));
     if (this.lod !== 1) this.applyLodTo(rec);
@@ -259,7 +262,7 @@ export class CityScene extends Phaser.Scene {
   }
 
   private applyLodTo(rec: LodImage) {
-    rec.img.setTexture(lodTextureKey(this, rec.key, this.lod));
+    rec.img.setTexture(lodTextureKey(this, rec.key, this.lod), rec.frame);
     rec.img.setScale(rec.scaleX * this.lod, rec.scaleY * this.lod);
   }
 
@@ -707,7 +710,7 @@ export class CityScene extends Phaser.Scene {
   /** Extra lines for the ?perf overlay. */
   perfInfo(): string {
     const e = this.environment;
-    return `quality ${e.quality.tier}${e.quality.animate ? '' : ' (still)'}\nprops ${e.stats.props} details ${e.stats.details}\nambient ${e.stats.ambient}`;
+    return `quality ${e.quality.tier}${e.quality.animate ? '' : ' (still)'}\nprops ${e.stats.props} (painted types ${e.stats.paintedProps}) details ${e.stats.details}\nambient ${e.stats.ambient}`;
   }
 
   /** Called by the host when devicePixelRatio changes (e.g. moving between screens). */

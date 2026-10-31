@@ -33,8 +33,14 @@ import {
   OPAQUE,
   overCheckerboard,
   resize,
+  removeSliceFragments,
+  solidifyBody,
+  translucentBodyShare,
   type Raster,
 } from './raster';
+
+/** Re-clean alpha when more than this share of the body is translucent (generator noise). */
+export const TRANSLUCENT_BODY_LIMIT = 0.01;
 
 export interface ObjectImportOptions {
   /** Fraction of the footprint diamond's width the artwork should span (default 0.96). */
@@ -137,14 +143,25 @@ function unionAlpha(a: Raster, b?: Raster): Raster {
   return out;
 }
 
-/** Cleans generator alpha (haze + not-quite-opaque bodies) when the image shows those symptoms. */
-function fixAlpha(r: Raster, notes: string[], label = '') {
+/**
+ * Cleans generator alpha (haze + not-quite-opaque bodies) when the image shows those symptoms.
+ * Sprites whose body is still noisy afterwards (alpha ~200–250 throughout, so foliage looks
+ * see-through) get their interior made solid; ground layers are left soft on purpose.
+ */
+function fixAlpha(r: Raster, notes: string[], label = '', solidBody = true) {
   const st = alphaStats(r);
+  const alphaAt = (x: number, y: number) => r.data[(y * r.width + x) * 4 + 3];
   if (st.max < 250 || st.haze > st.total * 0.001) {
     const n = cleanAlpha(r);
     notes.push(
       `Cleaned alpha${label}: max alpha was ${st.max}, ${st.haze} near-invisible haze px — body made fully opaque, haze removed, soft edges kept (${n} px adjusted)`,
     );
+  }
+  if (!solidBody) return;
+  const soft = translucentBodyShare(r.width, r.height, alphaAt);
+  if (soft > TRANSLUCENT_BODY_LIMIT) {
+    const n = solidifyBody(r);
+    notes.push(`Solidified the body${label}: ${Math.round(soft * 100)}% of it was semi-transparent (${n} px made opaque; outline anti-aliasing kept)`);
   }
 }
 
@@ -171,10 +188,13 @@ export function importObject(source: Raster, baseEntry: AssetEntry, opts: Object
   }
 
   if (opts.base) return importRegistered(source, baseEntry, opts);
+  if (isSpecExactProp(source, baseEntry, opts)) return importSpecExactProp(source, baseEntry, opts);
   const prep = (r: Raster, label: string) => {
     const work: Raster = { width: r.width, height: r.height, data: new Uint8Array(r.data) };
-    fixAlpha(work, notes, label);
+    fixAlpha(work, notes, label, label === '');
     prepareAlpha(work, opts.key ?? 'auto', notes);
+    const slivers = removeSliceFragments(work);
+    if (slivers) notes.push(`Removed ${slivers} px of sprite-sheet slivers${label} (pieces of neighbouring art cut by a straight edge)`);
     const specks = opts.keepIslands ? 0 : despeckle(work);
     if (specks) notes.push(`Removed ${specks} px of stray specks${label}`);
     return work;
@@ -218,7 +238,10 @@ export function importObject(source: Raster, baseEntry: AssetEntry, opts: Object
 
   // Scale so the artwork spans the (visual) footprint diamond.
   let s = (entry.geometry.diamond.width * fill) / bw;
-  const needH = Math.ceil(bh * s) + PAD + TOP_MARGIN + Math.max(0, -offsetY);
+  // Buildings stand on the footprint's front corner; props stand on the anchor (tile centre),
+  // exactly where the procedural props they replace are drawn.
+  const bottom = baseEntry.kind === 'prop' ? entry.geometry.canvas.height - entry.geometry.anchor.y : PAD;
+  const needH = Math.ceil(bh * s) + bottom + TOP_MARGIN + Math.max(0, -offsetY);
   if (needH > entry.geometry.canvas.height) {
     const grown = Math.ceil(needH / 32) * 32;
     if (entry.building && opts.autoHeight !== false && grown <= MAX_CANVAS_HEIGHT) {
@@ -226,7 +249,7 @@ export function importObject(source: Raster, baseEntry: AssetEntry, opts: Object
       height = grown;
       entry = applyMeta(baseEntry, { [baseEntry.file]: metaFor(height) });
     } else {
-      const availH = entry.geometry.canvas.height - PAD + offsetY + 1 - TOP_MARGIN;
+      const availH = entry.geometry.canvas.height - bottom + offsetY + 1 - TOP_MARGIN;
       const fitted = availH / bh;
       warnings.push(
         `Art is too tall for the ${entry.geometry.canvas.width}x${entry.geometry.canvas.height} canvas at full width: scaled to ${Math.round((fitted / s) * 100)}% ` +
@@ -238,7 +261,7 @@ export function importObject(source: Raster, baseEntry: AssetEntry, opts: Object
   if (s > 1.05) warnings.push(`Source art is small: upscaled ${s.toFixed(2)}x. Regenerate at higher resolution for sharper results.`);
   const g = entry.geometry;
   const { width: W, height: H } = g.canvas;
-  const groundY = H - PAD + offsetY;
+  const groundY = H - bottom + offsetY;
   const rw = Math.max(1, Math.round(bw * s));
   const rh = Math.max(1, Math.round(bh * s));
   notes.push(`Cropped ${bw}x${bh} → scaled ${s.toFixed(3)}x to ${rw}x${rh}${mirrored ? ' (mirrored)' : ''}`);
@@ -288,6 +311,43 @@ export function importObject(source: Raster, baseEntry: AssetEntry, opts: Object
     import: { fill, offsetY, mirrored, scale: Number(s.toFixed(4)) },
   };
   return { raster: out, ground: groundOut, meta, notes, warnings, manual };
+}
+
+/**
+ * A prop delivered at exactly its spec canvas, with real transparency, is already registered
+ * (base on the anchor). Re-fitting it would only resample the painting, so it is kept pixel for
+ * pixel unless the caller asks for --fill or --offset-y.
+ */
+export function isSpecExactProp(source: Raster, entry: AssetEntry, opts: ObjectImportOptions): boolean {
+  const { width, height } = entry.geometry.canvas;
+  return (
+    entry.kind === 'prop' &&
+    source.width === width &&
+    source.height === height &&
+    opts.fill === undefined &&
+    opts.offsetY === undefined &&
+    opts.mirror !== true &&
+    countTransparent(source) > source.width * source.height * 0.2
+  );
+}
+
+export function importSpecExactProp(source: Raster, entry: AssetEntry, opts: ObjectImportOptions): ImportResult {
+  const notes: string[] = [`Spec-exact ${source.width}x${source.height} canvas: kept in place (no crop, scale or shift)`];
+  const warnings: string[] = [];
+  const out: Raster = { width: source.width, height: source.height, data: new Uint8Array(source.data) };
+  fixAlpha(out, notes);
+  const slivers = removeSliceFragments(out);
+  if (slivers) notes.push(`Removed ${slivers} px of sprite-sheet slivers (pieces of neighbouring art cut by a straight edge)`);
+  const specks = opts.keepIslands ? 0 : despeckle(out);
+  if (specks) notes.push(`Removed ${specks} px of stray specks`);
+  const measured = measureObject(out, entry);
+  return {
+    raster: out,
+    meta: { top: measured.top, import: { specExact: true } },
+    notes,
+    warnings,
+    manual: [],
+  };
 }
 
 /** Measures the highest painted point and detects lit windows / a magic orb. */
@@ -459,8 +519,10 @@ export function importRegistered(source: Raster, baseEntry: AssetEntry, opts: Ob
 
   const prep = (r: Raster, label: string) => {
     const work: Raster = { width: r.width, height: r.height, data: new Uint8Array(r.data) };
-    fixAlpha(work, notes, label);
+    fixAlpha(work, notes, label, label === '');
     prepareAlpha(work, opts.key ?? 'auto', notes);
+    const slivers = removeSliceFragments(work);
+    if (slivers) notes.push(`Removed ${slivers} px of sprite-sheet slivers${label} (pieces of neighbouring art cut by a straight edge)`);
     const specks = opts.keepIslands ? 0 : despeckle(work);
     if (specks) notes.push(`Removed ${specks} px of stray specks${label}`);
     return work;

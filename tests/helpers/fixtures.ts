@@ -12,6 +12,17 @@ export function alignedObjectPng(key: string, opts: { mirror?: boolean; shiftY?:
   const c = diamondCorners(e.geometry);
   const poly = [c.top, c.right, c.bottom, c.left];
   const shift = opts.shiftY ?? 0;
+  if (e.kind === 'prop') {
+    // Props stand on the anchor (ground centre of the tile): a trunk and a round crown.
+    const a = e.geometry.anchor;
+    return encodePng(W, H, (x0, y0) => {
+      const x = opts.mirror ? W - 1 - x0 : x0;
+      const y = y0 - shift;
+      if (Math.abs(x - a.x) <= 8 && y <= a.y && y > a.y - 40) return [110, 80, 50, 255];
+      if (((x - a.x) / 60) ** 2 + ((y - (a.y - 80)) / 50) ** 2 <= 1) return [70, 130, 60, 255];
+      return null;
+    });
+  }
   return encodePng(W, H, (x0, y0) => {
     const x = opts.mirror ? W - 1 - x0 : x0;
     const y = y0 - shift;

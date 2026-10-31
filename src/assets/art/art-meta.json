@@ -57,5 +57,65 @@
       },
       "groundScale": "match"
     }
+  },
+  "props/tree_enchanted": {
+    "top": {
+      "x": 192,
+      "y": 117
+    },
+    "import": {
+      "source": "tree_enchanted.png",
+      "specExact": true
+    }
+  },
+  "props/tree_fir": {
+    "top": {
+      "x": 181,
+      "y": 89
+    },
+    "import": {
+      "source": "tree_fir.png",
+      "specExact": true
+    }
+  },
+  "props/tree_mystic": {
+    "top": {
+      "x": 165,
+      "y": 123
+    },
+    "import": {
+      "source": "tree_mystic.png",
+      "specExact": true
+    }
+  },
+  "props/tree_oak": {
+    "top": {
+      "x": 184,
+      "y": 102
+    },
+    "import": {
+      "source": "tree_oak.png",
+      "specExact": true
+    }
+  },
+  "props/tree_pine": {
+    "top": {
+      "x": 181,
+      "y": 72
+    },
+    "import": {
+      "source": "tree_pine.png",
+      "specExact": true
+    }
+  },
+  "props/tree_spruce": {
+    "top": {
+      "x": 169,
+      "y": 39
+    },
+    "import": {
+      "source": "tree_spruce.png",
+      "specExact": true
+    }
   }
 }

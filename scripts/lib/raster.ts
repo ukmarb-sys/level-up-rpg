@@ -121,14 +121,33 @@ export function keyOutBackground(r: Raster, tolerance = 28): number {
  * parts of the artwork (floating orbs, sparks, smoke) survive. Returns pixels removed.
  */
 export function despeckle(r: Raster, minFraction = 0.0005, minPixels = 16): number {
-  const { width: W, height: H, data } = r;
+  const { label, sizes } = labelComponents(r.width, r.height, (x, y) => r.data[(y * r.width + x) * 4 + 3]);
+  if (sizes.length <= 1) return 0;
+  const keep = Math.max(minPixels, Math.max(...sizes) * minFraction);
+  return clearComponents(r, label, (id) => sizes[id] < keep);
+}
+
+export interface Components {
+  /** Component id per pixel, -1 for transparent. */
+  label: Int32Array;
+  sizes: number[];
+  minX: number[];
+  maxX: number[];
+}
+
+/** 8-connected components of the visible (alpha > OPAQUE) pixels. */
+export function labelComponents(W: number, H: number, alpha: (x: number, y: number) => number): Components {
   const label = new Int32Array(W * H).fill(-1);
   const sizes: number[] = [];
+  const minX: number[] = [];
+  const maxX: number[] = [];
   const stack: number[] = [];
   for (let p = 0; p < W * H; p++) {
-    if (label[p] >= 0 || data[p * 4 + 3] <= OPAQUE) continue;
+    if (label[p] >= 0 || alpha(p % W, Math.floor(p / W)) <= OPAQUE) continue;
     const id = sizes.length;
     let size = 0;
+    let lo = W;
+    let hi = -1;
     label[p] = id;
     stack.push(p);
     while (stack.length) {
@@ -136,30 +155,106 @@ export function despeckle(r: Raster, minFraction = 0.0005, minPixels = 16): numb
       size++;
       const x = q % W;
       const y = (q - x) / W;
+      if (x < lo) lo = x;
+      if (x > hi) hi = x;
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
           const nx = x + dx;
           const ny = y + dy;
           if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
           const n = ny * W + nx;
-          if (label[n] >= 0 || data[n * 4 + 3] <= OPAQUE) continue;
+          if (label[n] >= 0 || alpha(nx, ny) <= OPAQUE) continue;
           label[n] = id;
           stack.push(n);
         }
       }
     }
     sizes.push(size);
+    minX.push(lo);
+    maxX.push(hi);
   }
-  if (sizes.length <= 1) return 0;
-  const keep = Math.max(minPixels, Math.max(...sizes) * minFraction);
+  return { label, sizes, minX, maxX };
+}
+
+function clearComponents(r: Raster, label: Int32Array, remove: (id: number) => boolean): number {
   let removed = 0;
-  for (let p = 0; p < W * H; p++) {
-    if (label[p] >= 0 && sizes[label[p]] < keep) {
-      data[p * 4 + 3] = 0;
+  for (let p = 0; p < label.length; p++) {
+    if (label[p] >= 0 && remove(label[p])) {
+      r.data[p * 4 + 3] = 0;
       removed++;
     }
   }
   return removed;
+}
+
+export interface VerticalCut {
+  x: number;
+  /** 'right': paint stops dead on the right of column x; 'left': on its left. */
+  side: 'left' | 'right';
+  /** Rows where a solid pixel sits directly next to transparency at this column. */
+  rows: number;
+}
+
+/**
+ * Ruler-straight vertical edges: columns where many solid pixels sit directly next to
+ * transparency. Painted silhouettes never do this; it's the signature of art sliced out of a
+ * sprite sheet (the cut side is truncated and neighbouring pieces leave slivers).
+ */
+export function verticalCuts(W: number, H: number, alpha: (x: number, y: number) => number, minRows = 12): VerticalCut[] {
+  const out: VerticalCut[] = [];
+  for (let x = 0; x < W; x++) {
+    let right = 0;
+    let left = 0;
+    for (let y = 0; y < H; y++) {
+      if (alpha(x, y) <= 200) continue;
+      if (x === W - 1 || alpha(x + 1, y) <= OPAQUE) right++;
+      if (x === 0 || alpha(x - 1, y) <= OPAQUE) left++;
+    }
+    if (right >= minRows) out.push({ x, side: 'right', rows: right });
+    if (left >= minRows) out.push({ x, side: 'left', rows: left });
+  }
+  return out;
+}
+
+/**
+ * Slivers of neighbouring sprites left by sprite-sheet slicing: detached pieces (much smaller
+ * than the main artwork) whose outer side is a straight vertical cut spanning most of their
+ * height. Round sparks, motes and floating orbs never match. Returns the component ids.
+ */
+export function sliceFragments(W: number, H: number, alpha: (x: number, y: number) => number, c = labelComponents(W, H, alpha)): number[] {
+  if (c.sizes.length <= 1) return [];
+  const main = c.sizes.indexOf(Math.max(...c.sizes));
+  const minY = c.sizes.map(() => H);
+  const maxY = c.sizes.map(() => -1);
+  const leftRows = c.sizes.map(() => 0);
+  const rightRows = c.sizes.map(() => 0);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const id = c.label[y * W + x];
+      if (id < 0) continue;
+      if (y < minY[id]) minY[id] = y;
+      if (y > maxY[id]) maxY[id] = y;
+      // every visible pixel of the component sits on a cut column: alpha(x±1) is transparent
+      if (x === c.minX[id] && (x === 0 || alpha(x - 1, y) <= OPAQUE)) leftRows[id]++;
+      if (x === c.maxX[id] && (x === W - 1 || alpha(x + 1, y) <= OPAQUE)) rightRows[id]++;
+    }
+  }
+  const out: number[] = [];
+  for (let id = 0; id < c.sizes.length; id++) {
+    if (id === main || c.sizes[id] >= c.sizes[main] * 0.25) continue;
+    const h = maxY[id] - minY[id] + 1;
+    const cut = Math.max(leftRows[id], rightRows[id]);
+    if (cut >= 8 && cut >= h * 0.6) out.push(id);
+  }
+  return out;
+}
+
+/** Deletes sprite-sheet slivers (see `sliceFragments`). Returns pixels removed. */
+export function removeSliceFragments(r: Raster): number {
+  const alpha = (x: number, y: number) => r.data[(y * r.width + x) * 4 + 3];
+  const c = labelComponents(r.width, r.height, alpha);
+  const ids = new Set(sliceFragments(r.width, r.height, alpha, c));
+  return ids.size ? clearComponents(r, c.label, (id) => ids.has(id)) : 0;
 }
 
 /** Alpha statistics used to decide whether an image needs alpha clean-up. */
@@ -187,6 +282,67 @@ export function cleanAlpha(r: Raster, lo = 8, hi = 245): number {
     const next = a <= lo ? 0 : a >= hi ? 255 : Math.round(((a - lo) * 255) / (hi - lo));
     if (next !== a) {
       r.data[i] = next;
+      changed++;
+    }
+  }
+  return changed;
+}
+
+/** Body pixels: every pixel within `radius` has alpha >= `min` (an erosion of the silhouette). */
+export function bodyMask(width: number, height: number, alpha: (x: number, y: number) => number, radius = 2, min = 150): Uint8Array {
+  // separable min filter: rows, then columns
+  const rows = new Uint8Array(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let m = 255;
+      for (let k = -radius; k <= radius && m >= min; k++) {
+        const xx = x + k;
+        m = xx < 0 || xx >= width ? 0 : Math.min(m, alpha(xx, y));
+      }
+      rows[y * width + x] = m;
+    }
+  }
+  const out = new Uint8Array(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let ok = 1;
+      for (let k = -radius; k <= radius && ok; k++) {
+        const yy = y + k;
+        if (yy < 0 || yy >= height || rows[yy * width + x] < min) ok = 0;
+      }
+      out[y * width + x] = ok;
+    }
+  }
+  return out;
+}
+
+/** Share of near-opaque body pixels (see `bodyMask`, alpha >= 200 all round) that are not fully opaque (alpha < 250). */
+export function translucentBodyShare(width: number, height: number, alpha: (x: number, y: number) => number): number {
+  const body = bodyMask(width, height, alpha, 2, 200);
+  let n = 0;
+  let soft = 0;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (!body[y * width + x]) continue;
+      n++;
+      if (alpha(x, y) < 250) soft++;
+    }
+  }
+  return n ? soft / n : 0;
+}
+
+/**
+ * Makes the near-opaque inside of the silhouette fully opaque. Some generators write noisy alpha
+ * (around 215–250) across the whole body, so foliage is faintly see-through in game; the soft
+ * outer edge (within `radius` px of the outline) keeps its anti-aliasing, and genuinely
+ * translucent areas (shadows, glows below `min`) are untouched. Returns pixels changed.
+ */
+export function solidifyBody(r: Raster, radius = 2, min = 200): number {
+  const body = bodyMask(r.width, r.height, (x, y) => r.data[(y * r.width + x) * 4 + 3], radius, min);
+  let changed = 0;
+  for (let i = 0; i < body.length; i++) {
+    if (body[i] && r.data[i * 4 + 3] !== 255) {
+      r.data[i * 4 + 3] = 255;
       changed++;
     }
   }

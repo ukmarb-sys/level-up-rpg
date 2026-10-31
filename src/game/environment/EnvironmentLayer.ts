@@ -15,6 +15,7 @@ import { footprintDepth, isoPoint, TILE_H, TILE_W, worldToGridF } from '../iso';
 import { hash2, mixColor } from '../noise';
 import { layoutProps, SCENERY_RING, type PropPlacement } from '../props';
 import { ambientPlan, groundTone, layoutGroundDetails, type AmbientPlan, type Quality, type Rgb } from './layout';
+import { ENV_PAINTED, buildPaintedPropAtlas } from './paintedAtlas';
 import { PAINT_SCALE } from './paint';
 import { detailPivot, ENV_DETAILS, ENV_GLOW, ENV_GRASS, ENV_PROPS, ensureEnvironmentTextures, propFrame, propPivot } from './textures';
 
@@ -68,7 +69,7 @@ export class EnvironmentLayer {
     return this.opts.quality;
   }
   /** Counts for the ?perf overlay and tests. */
-  readonly stats = { details: 0, props: 0, ambient: 0 };
+  readonly stats = { details: 0, props: 0, paintedProps: 0, ambient: 0 };
 
   constructor(
     private scene: Phaser.Scene,
@@ -212,6 +213,11 @@ export class EnvironmentLayer {
   }
 
   private drawProps() {
+    // With painted props, every prop (painted and procedural) draws from one combined atlas
+    // that switches LOD as a whole: a single texture keeps the forest in one batch on Android.
+    const painted = buildPaintedPropAtlas(this.scene, this.opts.art, ENV_PROPS);
+    const combined = painted.size > 0;
+    this.stats.paintedProps = painted.size;
     for (const p of this.props) {
       const gx = p.x + 0.5 + p.ox;
       const gy = p.y + 0.5 + p.oy;
@@ -219,14 +225,21 @@ export class EnvironmentLayer {
       const depth = footprintDepth(gx - 0.5, gy - 0.5, 1, 1);
       const key = propKey(p.type);
       if (this.opts.art.has(key)) {
-        const img = this.opts.trackLod(makeSprite(this.scene, this.opts.art, { key, flipX: p.flip }), key);
-        img.setPosition(at.x, at.y).setDepth(depth);
+        // Painted art draws from the shared atlas when it could be packed (one batch for the
+        // whole forest). Same per-placement size variation as the procedural props, set before
+        // LOD tracking, which records the base scale.
+        const atlas = painted.has(key) ? ENV_PAINTED : undefined;
+        const img = makeSprite(this.scene, this.opts.art, { key, flipX: p.flip }, atlas);
+        img.setScale(img.scaleX * p.scale);
+        this.opts.trackLod(img, atlas ?? key).setPosition(at.x, at.y).setDepth(depth);
         continue;
       }
       const pivot = propPivot(p.type);
-      const img = this.scene.add.image(at.x, at.y, ENV_PROPS, propFrame(p.type, p.variant)).setOrigin(pivot.x, pivot.y);
+      const atlas = combined ? ENV_PAINTED : ENV_PROPS;
+      const img = this.scene.add.image(at.x, at.y, atlas, propFrame(p.type, p.variant)).setOrigin(pivot.x, pivot.y);
       const s = p.scale / PAINT_SCALE;
       img.setScale(p.flip ? -s : s, s).setDepth(depth);
+      if (combined) this.opts.trackLod(img, ENV_PAINTED);
     }
     this.stats.props = this.props.length;
   }

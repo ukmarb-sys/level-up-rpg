@@ -314,8 +314,25 @@ it (rotate 45°, squash 2:1, wrap-around sampling) gives tiles that meet without
 diamonds are stretched to 256×128 and masked, and they will show seams unless their edges are
 painted to match.
 
-**Props:** imported exactly like buildings (1×1 footprint). The game randomly mirrors props,
-so avoid asymmetric details and strongly one-sided lighting.
+**Props:** 1×1 footprint, but unlike buildings a prop **stands on the anchor**: the trunk or
+base sits on the ground centre of its tile `(160, height − 96)`, exactly where the procedural
+props are drawn. Props are usually narrower than the tile, which is fine.
+- A prop delivered at its **exact spec canvas** with real transparency is kept pixel for pixel:
+  no crop, scale or shift. Only the alpha is cleaned.
+- Other props are fitted like buildings (`--fill`), then aligned with their lowest pixel on the
+  anchor.
+- The importer also removes **sprite-sheet slivers**: detached pieces whose outer side is a
+  straight vertical cut (fragments of a neighbouring sprite). Round sparks and motes are kept.
+- The game randomly mirrors props and varies their size by ±15%, so avoid asymmetric details
+  and strongly one-sided lighting.
+- Leave at least **16 px of side margin**. Art sliced from a sheet with no margin is truncated
+  by a straight vertical edge, and the validator warns about it.
+
+Alpha clean-up also covers bodies that are noisy rather than nearly opaque: when more than 1% of
+the solid interior is still semi-transparent after the standard clean-up (typical: foliage at
+alpha 215–250), the interior is made fully opaque. The outer 2 px keep their anti-aliasing, and
+genuinely translucent areas (shadows and glows below alpha 200) are untouched. Ground layers are
+never solidified.
 
 ## 9. Validation
 
@@ -328,8 +345,11 @@ so avoid asymmetric details and strongly one-sided lighting.
 | Alpha channel; transparent corners | Flat backgrounds |
 | 8-bit RGBA, non-interlaced PNG | Encodings the validator can't inspect |
 | Art not touching the edges | Cropped generations |
-| Lowest pixel at the front corner | Wrong anchor or vertical offset |
-| Horizontal extent vs. footprint | Wrong footprint or scale |
+| Lowest pixel at the front corner (buildings) | Wrong anchor or vertical offset |
+| Horizontal extent vs. footprint (buildings) | Wrong footprint or scale |
+| Lowest pixel on the anchor, base near its x (props) | Floating props, or props aligned to the front corner like a building |
+| Solid body (≤ 1% of the interior semi-transparent) | See-through generator output that skipped `art:import` |
+| Slivers with a straight cut; straight cut on a prop's side (warning) | Art sliced from a sprite sheet: neighbour fragments, truncated foliage |
 | Front-corner position (non-square) | Mirrored art or the wrong orientation |
 | Terrain diamond coverage | Square tiles, and holes that cause seams |
 | `art-meta.json` keys and points | Typos, points off the canvas, a stale `top`, effects over transparent pixels, sprites without metadata |

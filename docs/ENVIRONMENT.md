@@ -21,12 +21,46 @@ All of it is generated in code at startup: deterministic, with no image download
 | Ground details | 12 hand-designed detail sprites (grass tufts, moss, clover, yellow/white/violet/pink wildflowers, pebbles, toadstools, fallen leaves, glowing dots) in one atlas. Sparse and flat (≤ 6 px tall) inside the grid; denser forest floor in the ring. |
 | Perimeter forest | 3-tile scenery ring with 14 prop types in one atlas: pine, spruce, fir, oak, mystical weeping lilac tree, enchanted violet tree, fern, glowing teal mushrooms, glowing bellflowers, mossy boulder, small stones, ruined pillar, standing stone with a glowing rune, crystal cluster. Layered forest at the back, ancient corners, and only low undergrowth at the front. |
 | Ambient life | Fireflies that wander and blink near the island edges, spores rising from mystical plants, soft pulsing glows on magical props, and the ley-line rim. One `update()` pass with no per-object tweens. |
-| Painted art first | `terrain/grass_N` and every `props/*` file from the asset pipeline replace the procedural version automatically. |
+| Painted art first | `terrain/grass_N` and every `props/*` file from the asset pipeline replace the procedural version automatically. The six trees are painted (see below). |
+
+## Painted trees
+
+![The six imported trees](screenshots/trees-imported.jpg)
+![Whole island: procedural trees (left) and painted trees (right)](screenshots/trees-island-before-after.jpg)
+![Painted forest edge, close up](screenshots/trees-forest-close.jpg)
+
+Pine, spruce, fir, oak, enchanted and mystic trees are hand-painted (`src/assets/art/props/`,
+sources in `art-source/raw/trees/`). They replace the procedural trees one for one. Placement,
+the ±15% size variation and random mirroring are the same, and they stand on the same point (the
+tile centre), so the layout, depth sorting, collision and saves are unchanged. The rocks, ruins
+and undergrowth are still procedural.
+
+**One texture for all props.** On Android, Phaser renders with its single-texture
+MobilePipeline, so every switch between textures among the depth-sorted props is another draw
+call. With one texture per tree the forest cost about 160 draw calls per frame. At startup
+`buildPaintedPropAtlas` (`src/game/environment/paintedAtlas.ts`) therefore packs the painted
+props and the procedural prop atlas into a single texture (2032 × 1072 for the six trees), frees
+the originals, and switches its ½/¼ level-of-detail copies as a whole. Result: 15–16 draw calls,
+the same as before.
+
+**Known visual issues** (in the source art; a regenerated pack can be dropped in with no code
+changes):
+- Oak, enchanted and fir, and slightly the spruce, were sliced from a sprite sheet with no
+  margin. Their foliage ends in a straight vertical cut on the right (93, 78, 47 and 25 source px
+  tall). In game it's 6–23 world px and mostly hidden by the overlapping forest, but it shows on
+  a tree standing alone. `validate:assets` reports it as a warning. The slivers of neighbouring
+  trees on the other side were removed on import.
+- Every tree has its own baked mound of bright grass, rocks and flowers. On the darker forest
+  floor these read as small, repeated patches, especially the identical rocks under each pine.
+- The painted trees are far more detailed than the procedural ferns, mushrooms and rocks
+  beside them. Painting those props (priority 3 below) would close the gap.
 
 ## Readability and gameplay guarantees
 
 All of these are covered by `tests/environment.test.ts`:
 
+- **Painted trees too:** `tests/treeArt.test.ts` repeats the silhouette check with the real
+  painted pixels of every tree, flip and scale.
 - **No props on the grid:** nothing decorative is placed on the 20×20 buildable grid, and
   collision, placement and saves are untouched.
 - **Tall props stay clear:** tall props stand only where their silhouette rises *away* from the
@@ -77,9 +111,8 @@ changes.
 | Priority | File (`src/assets/art/…`) | Canvas (px) | Notes |
 | --- | --- | --- | --- |
 | 1 | `terrain/grass_0.png` … `grass_3.png` | 256 × 128 | Best made from **seamless square top-down grass textures** (`art:import --tile square` projects them). Painted tiles are drawn per tile and tinted by the tone field. |
-| 2 | `props/tree_pine.png`, `tree_spruce.png`, `tree_fir.png` | 320 × 512 / 576 / 480 | Evergreens: the bulk of the forest |
-| 2 | `props/tree_mystic.png`, `tree_enchanted.png` | 320 × 512 / 480 | Lilac weeping tree; violet enchanted tree |
-| 3 | `props/tree_oak.png`, `bush_fern.png`, `glow_shroom.png`, `glow_bloom.png` | 320 × 448 / 224 / 224 / 256 | Broadleaf and undergrowth |
+| ✔ | `props/tree_pine.png`, `tree_spruce.png`, `tree_fir.png`, `tree_oak.png`, `tree_enchanted.png`, `tree_mystic.png` | 320 × 512 / 576 / 480 / 448 / 480 / 512 | **Done.** Oak, enchanted and fir would benefit from a re-export with side margin (see above). |
+| 3 | `props/bush_fern.png`, `glow_shroom.png`, `glow_bloom.png` | 320 × 224 / 224 / 256 | Undergrowth |
 | 3 | `props/rock_mossy.png`, `rock_small.png`, `ruin_pillar.png`, `standing_stone.png`, `crystal_cluster.png` | 320 × 256 / 192 / 448 / 448 / 288 | Ancient-mystery accents |
 
 Not yet supported by the asset pipeline:
@@ -96,6 +129,7 @@ Both would need small manifest additions in a later phase.
 | `src/game/environment/layout.ts` | Tone field, ground details, ambient plan, quality tiers (pure, unit-tested) |
 | `src/game/environment/paint.ts` | Canvas 2D painters for grass, details, props and glow (Phaser-free) |
 | `src/game/environment/textures.ts` | Packs the painted textures into Phaser atlases (once per game) |
+| `src/game/environment/paintedAtlas.ts` | Merges painted props and the procedural prop atlas into one texture |
 | `src/game/environment/EnvironmentLayer.ts` | Builds the island in the scene and animates ambient life |
 | `src/game/environment/device.ts` | Reads device signals and `?quality` to pick the tier |
 | `src/game/createGame.ts` | Enables mipmaps; `?perf` overlay |

@@ -94,7 +94,10 @@ pop-in tween, selection, movement and demolition code are shared.
 
 Tall props stand only where their silhouette rises away from the grid on screen. A test checks
 this geometrically for every placement. Each prop uses its painted sprite when one exists (see
-the asset manifest), otherwise its frame from the procedural `env-props` atlas.
+the asset manifest), otherwise its frame from the procedural `env-props` atlas. When any painted
+prop is loaded, both are merged into one `env-painted-props` texture with LOD copies (see
+ENVIRONMENT.md), so the forest stays in a single draw batch on Android's single-texture
+pipeline. Painted props stand on their anchor, the tile centre, like the procedural ones.
 
 ## Selection feedback
 
