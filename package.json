@@ -13,7 +13,8 @@
     "typecheck": "tsc -b",
     "validate:assets": "tsx scripts/validate-assets.ts",
     "art:import": "tsx scripts/import-art.ts",
-    "art:table": "tsx scripts/print-asset-table.ts"
+    "art:table": "tsx scripts/print-asset-table.ts",
+    "art:webp": "python3 scripts/png-to-webp.py"
   },
   "dependencies": {
     "phaser": "^3.90.0",

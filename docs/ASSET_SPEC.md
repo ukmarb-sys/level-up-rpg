@@ -96,8 +96,12 @@ canvas is sized from the **visual footprint** instead. The anchor stays at the c
   (`mageTower`, `_r0`). The game ignores `cottage_r0.PNG`, and the validator reports it with the
   exact rename to make.
 - **Formats:** `art:import` writes **8-bit RGBA PNG** masters, which the validator inspects pixel
-  by pixel. WebP with alpha also loads; if both exist the game uses the WebP. WebP files get
-  only size and alpha checks, so keep the PNG master.
+  by pixel. `npm run art:webp` (Python + Pillow) then writes the WebP the game ships: quality 95
+  with sharp YUV for colour, full-quality alpha, typically 4–5× smaller. When both exist, the game
+  loads only the WebP, and the validator pixel-checks the PNG master. A WebP whose size differs
+  from its master is reported as stale.
+- **Raw sources:** original generator output goes in `art-source/raw/`. It isn't bundled; see
+  `art-source/README.md` for the exact command that reproduces each committed sprite.
 - **Backgrounds:** fully transparent (alpha 0). Glows may be semi-transparent. JPEG is rejected
   because it cannot hold transparency.
 - **Metadata:** `src/assets/art/art-meta.json` records each imported sprite's measured **top**
@@ -252,23 +256,27 @@ npm run validate:assets
 What the importer does automatically:
 1. **Decodes** RGBA, RGB, palette, grey and 16-bit PNGs (convert WebP or JPEG inputs to PNG
    first).
-2. **Removes the background** when the image has no real transparency: flat colour or a fake
+2. **Cleans generator alpha:** some generators never write fully opaque pixels (max alpha
+   251–254) and leave near-invisible haze (alpha 1–8) over the background. When it detects
+   this, the importer clears the haze, makes the body fully opaque and stretches the soft edge
+   in between, so anti-aliasing is kept.
+3. **Removes the background** when the image has no real transparency: flat colour or a fake
    checkerboard, flood-filled from the border.
-3. **Despeckles:** removes stray specks of 16 px or less, but keeps detached parts such as
+4. **Despeckles:** removes stray specks of 16 px or less, but keeps detached parts such as
    floating orbs and sparks.
-4. **Crops** to the painted pixels.
-5. **Checks orientation:** for non-square footprints, art drawn for the other orientation is
+5. **Crops** to the painted pixels.
+6. **Checks orientation:** for non-square footprints, art drawn for the other orientation is
    mirrored, with a warning.
-6. **Scales** the art to span `fill` (default 96%) of the footprint diamond's width (the
+7. **Scales** the art to span `fill` (default 96%) of the footprint diamond's width (the
    *visual* footprint if `--visual` is given), using high-quality premultiplied-alpha
    resampling. For buildings that are too tall, the canvas height is increased (and recorded
    in `art-meta.json`); with `--no-auto-height`, and for props, the art is scaled down instead.
-7. **Aligns** the lowest painted pixel to the footprint's front corner, centred on the anchor.
-8. **Measures** `top`, lit windows and the orb, and writes `art-meta.json`.
-9. **Writes** `src/assets/art/<file>.png` and a preview at `art-previews/<name>.preview.png`
+8. **Aligns** the lowest painted pixel to the footprint's front corner, centred on the anchor.
+9. **Measures** `top`, lit windows and the orb, and writes `art-meta.json`.
+10. **Writes** `src/assets/art/<file>.png` and a preview at `art-previews/<name>.preview.png`
    (green = footprint, cyan = anchor, yellow = top, magenta = effects). Previews are
    git-ignored.
-10. **Validates** the result. It exits with an error if anything fails.
+11. **Validates** the result. It exits with an error if anything fails.
 
 Options:
 
@@ -282,6 +290,11 @@ Options:
 | `--visual WxD` / `--visual U0,V0,U1,V1` | The art paints more than its logical footprint (§11) |
 | `--ground FILE` | Ground-layer image (same pixel size as the input) for gardens, paths and shadows (§11) |
 | `--height PX` / `--no-auto-height` | Set the canvas height / shrink tall art instead of growing the canvas |
+| `--base L,R,FRONT` | Register by the building's **base** instead of fitting the whole image: input-pixel x of the base's left and right corners, and y of its front corner. The base fills the logical footprint, and everything painted around it becomes overhang. Needs `--visual`. Also trims unused canvas height. |
+| `--base-fill F` | Fraction of the logical footprint the base spans (default 1) |
+| `--ground-rect U0,V0,U1,V1` | With `--base`: the tiles (local frame) an **independent** `--ground` image of any size covers, e.g. a garden beside the building |
+| `--ground-scale match/fit` | Ground image at the building's painted scale (default) or fitted to the rect |
+| `--effect-src NAME=X,Y` | Effect point in **input** image pixels; mapped through the import transform |
 | `--tile square/diamond` | Terrain source type (default auto) |
 | `--effect NAME=X,Y` / `NAME=none` | Set or disable chimney, orb, wheel or window (repeatable) |
 | `--dry-run` | Report only; write nothing |
@@ -323,7 +336,7 @@ These checks are heuristics. Always place, rotate and move the building in game
 - **Real rotations:** providing `_r1`, `_r2` and `_r3` for each building. Mirrored rotations are
   temporary fallbacks, and the validator lists them until they're replaced.
 - **Seamless terrain:** making terrain textures seamless before import.
-- **WebP (optional):** converting the PNG masters with an external tool such as
+- **WebP:** run `npm run art:webp` (needs Python with Pillow) after importing. Alternatively, convert the PNG masters with an external tool such as
   `cwebp -q 90 -alpha_q 100 in.png -o out.webp` and re-running the validator. Not required:
   PNG works in game.
 
@@ -425,6 +438,24 @@ Export decoration that extends beyond the tile as a separate image of the exact 
     (2.0× on a typical 2× phone), so art is never shown blurry and upscaled.
 
 ### Importing an illustration with overhang
+
+**Shipped example: the cottage and mystic garden.** These are the exact commands that produce
+the committed files (also in `art-source/README.md`):
+
+```bash
+npm run art:import -- art-source/raw/levelup_cottage.png --as cottage_r0 \
+  --base 125,770,890 --visual -0.25,-1,1.25,1.25 \
+  --ground art-source/raw/levelup_mystic_garden.png --ground-rect 0,-1,1,0 \
+  --effect-src chimney=437,100
+npm run art:webp
+```
+
+What this does:
+- The house's base (x 125–770, front corner y 890 in the painting) is registered to the 1×1 tile.
+- The painted plot around it overhangs by about a quarter tile.
+- The garden goes on the tile behind-right of the cottage (`v −1…0`), at the same painted scale.
+  That tile stays free for building; anything built there draws over the garden.
+
 
 ```bash
 # preferred: house and garden (incl. flowers and fences) exported as two layers of the same pixel size

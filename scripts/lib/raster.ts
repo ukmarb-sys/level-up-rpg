@@ -162,6 +162,37 @@ export function despeckle(r: Raster, minFraction = 0.0005, minPixels = 16): numb
   return removed;
 }
 
+/** Alpha statistics used to decide whether an image needs alpha clean-up. */
+export function alphaStats(r: Raster) {
+  let max = 0;
+  let haze = 0;
+  for (let i = 3; i < r.data.length; i += 4) {
+    const a = r.data[i];
+    if (a > max) max = a;
+    if (a > 0 && a <= 8) haze++;
+  }
+  return { max, haze, total: r.data.length / 4 };
+}
+
+/**
+ * Fixes alpha produced by some image generators: near-invisible "haze" (alpha <= lo) becomes
+ * fully transparent and nearly-opaque bodies (alpha >= hi, e.g. 251-254) become fully opaque,
+ * while the soft edge in between is stretched linearly so fine anti-aliasing is preserved.
+ * Returns the number of pixels changed.
+ */
+export function cleanAlpha(r: Raster, lo = 8, hi = 245): number {
+  let changed = 0;
+  for (let i = 3; i < r.data.length; i += 4) {
+    const a = r.data[i];
+    const next = a <= lo ? 0 : a >= hi ? 255 : Math.round(((a - lo) * 255) / (hi - lo));
+    if (next !== a) {
+      r.data[i] = next;
+      changed++;
+    }
+  }
+  return changed;
+}
+
 export function crop(r: Raster, b: Bounds): Raster {
   const w = b.maxX - b.minX + 1;
   const h = b.maxY - b.minY + 1;

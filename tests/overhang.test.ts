@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { BUILDINGS } from '../src/core/buildings';
 import { createInitialState, placeBuilding, relocateBuilding } from '../src/core/game';
@@ -293,8 +292,4 @@ describe('validating overhang metadata and ground layers', () => {
     const res = house();
     expect(decodePng(encodeRgba(res.raster.width, res.raster.height, res.raster.data))).not.toBeNull();
   });
-});
-
-it('ships no artwork and an empty art-meta.json', () => {
-  expect(JSON.parse(readFileSync(new URL('../src/assets/art/art-meta.json', import.meta.url), 'utf8'))).toEqual({});
 });

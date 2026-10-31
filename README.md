@@ -54,6 +54,7 @@ npm test           # Vitest unit tests (placement, resources, save/load, project
 npm run build      # type-check + production build into dist/
 npm run preview    # serve dist/ at /level-up-rpg/ like GitHub Pages
 npm run art:import -- art.png --as cottage_r0   # cut out, scale, align, measure, validate
+npm run art:webp          # PNG masters -> shipped WebP (Python + Pillow)
 npm run validate:assets   # check artwork in src/assets/art against the manifest
 npm run art:table         # print the asset reference tables used in docs/ASSET_SPEC.md
 ```
@@ -68,7 +69,8 @@ it to the footprint, measures its top and effect points, and validates it. Names
 footprints are listed in [docs/ASSET_SPEC.md](docs/ASSET_SPEC.md). Art that paints more than its
 tile (for example a cottage with a garden) is supported with `--visual 2x2`. The building's
 gameplay footprint stays the same; see §11 of the spec.
-Anything missing falls back to the built-in procedural art, which is what ships today.
+Anything missing falls back to the built-in procedural art. The cottage now uses painted art,
+with the mystic garden as its ground layer (sources in `art-source/`).
 [docs/RENDERING.md](docs/RENDERING.md) explains how terrain, buildings, depth sorting and
 the build-mode grid are drawn.
 

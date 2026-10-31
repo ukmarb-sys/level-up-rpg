@@ -100,9 +100,9 @@ describe('manifest top and effect points', () => {
     expect(applyMeta(e, {})).toBe(e);
   });
 
-  it('ships an empty, valid art-meta.json (no placeholder art)', () => {
+  it('ships a valid art-meta.json whose entries are all manifest files', () => {
     const meta = JSON.parse(readFileSync(new URL('../src/assets/art/art-meta.json', import.meta.url), 'utf8'));
-    expect(meta).toEqual({});
+    for (const file of Object.keys(meta)) expect(ASSET_MANIFEST.some((e) => e.file === file), file).toBe(true);
   });
 });
 
