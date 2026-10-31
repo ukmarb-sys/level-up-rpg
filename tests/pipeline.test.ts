@@ -1,3 +1,4 @@
+import type { BuildingType } from '../src/core/types';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { BUILDING_ORDER } from '../src/core/buildings';
@@ -35,7 +36,7 @@ describe('file extension and name case', () => {
     expect(explainUnknownFile('art/cottage_r0.png')).toMatch(/Wrong folder.*buildings\/cottage\/cottage_r0\.png/);
     expect(explainUnknownFile('art/buildings/cottage/cottage_r0.jpg')).toMatch(/JPEG has no transparency/);
     expect(explainUnknownFile('art/buildings/cottage/cottage_r0.gif')).toMatch(/Unsupported extension/);
-    expect(explainUnknownFile('art/buildings/castle/castle_r0.png')).toMatch(/Not in the asset manifest/);
+    expect(explainUnknownFile('art/buildings/dragonLair/dragonLair_r0.png')).toMatch(/Not in the asset manifest/);
   });
 
   it('reports uppercase extensions as errors in validation', () => {
@@ -47,7 +48,18 @@ describe('file extension and name case', () => {
 
 describe('manifest top and effect points', () => {
   it('gives every building rotation a top point and the right effects, inside its canvas', () => {
-    const expected = { cottage: ['chimney', 'windows'], farm: [], sawmill: ['wheel'], mageTower: ['orb', 'windows', 'windows'] };
+    const expected: Record<BuildingType, string[]> = {
+      cottage: ['chimney', 'windows'],
+      farm: [],
+      sawmill: ['wheel'],
+      mageTower: ['orb', 'windows', 'windows'],
+      blacksmith: ['chimney', 'windows'],
+      tavern: ['chimney', 'windows', 'windows'],
+      marketplace: [],
+      alchemist: ['chimney', 'sparkles', 'windows'],
+      temple: ['sparkles'],
+      castle: ['windows', 'windows'],
+    };
     for (const type of BUILDING_ORDER) {
       for (const r of ROT) {
         const e = manifestByKey.get(buildingKey(type, r))!;
@@ -111,7 +123,7 @@ describe('art-meta validation', () => {
   const msgs = (meta: object) => validateArt([cottage], { meta: meta as never }).issues.map((i) => `${i.severity}: ${i.message}`);
 
   it('rejects unknown keys and points outside the canvas', () => {
-    expect(msgs({ 'buildings/castle/castle_r0': {} })).toContainEqual(expect.stringMatching(/^error: Not a manifest file/));
+    expect(msgs({ 'buildings/dragonLair/dragonLair_r0': {} })).toContainEqual(expect.stringMatching(/^error: Not a manifest file/));
     expect(msgs({ 'buildings/cottage/cottage_r0': { top: { x: 500, y: 10 } } })).toContainEqual(expect.stringMatching(/^error: top point .* outside/));
   });
 

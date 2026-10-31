@@ -2,10 +2,10 @@
  * Pure state transitions for the city. Every action returns a new GameState and never
  * mutates its input, which keeps the logic easy to test, save and replay.
  */
-import { BUILDINGS, DEMOLISH_REFUND, MAP_SIZE, STARTING_RESOURCES } from './buildings';
+import { availability, BUILDINGS, DEMOLISH_REFUND, MAP_SIZE, STARTING_RESOURCES } from './buildings';
 import { checkPlacement } from './grid';
 import { add, canAfford, emptyResources, RESOURCE_TYPES, scale, subtract } from './resources';
-import type { ActionResult, BuildingType, GameState, GridPos, Rotation } from './types';
+import type { ActionResult, BuildingType, GameState, GridPos, Resources, Rotation } from './types';
 
 export const STATE_VERSION = 1;
 
@@ -36,6 +36,8 @@ export function placeBuilding(
   now = Date.now(),
 ): ActionResult {
   const cost = BUILDINGS[type].cost;
+  const avail = availability(type, state.buildings);
+  if (!avail.ok) return fail(state, avail.reason);
   if (!canAfford(state.resources, cost)) return fail(state, 'insufficient-resources');
   const check = checkPlacement(type, pos, rotation, state.buildings, state.mapSize);
   if (!check.valid) return fail(state, check.reason);
@@ -88,9 +90,24 @@ export function demolishBuilding(state: GameState, id: string, now = Date.now())
   };
 }
 
-/** Production per minute summed over all standing buildings. */
+/** Production bonus per resource from standing buildings (e.g. 0.1 = +10%). Bonuses add up. */
+export function productionBoost(state: GameState): Resources {
+  const out = emptyResources();
+  for (const b of state.buildings) {
+    const boosts = BUILDINGS[b.type].boosts;
+    if (!boosts) continue;
+    for (const r of RESOURCE_TYPES) out[r] += (boosts.all ?? 0) + (boosts[r] ?? 0);
+  }
+  return out;
+}
+
+/** Production per minute summed over all standing buildings, with bonuses applied. */
 export function productionRate(state: GameState) {
-  return state.buildings.reduce((acc, b) => add(acc, BUILDINGS[b.type].produces), emptyResources());
+  const base = state.buildings.reduce((acc, b) => add(acc, BUILDINGS[b.type].produces), emptyResources());
+  const boost = productionBoost(state);
+  const out = emptyResources();
+  for (const r of RESOURCE_TYPES) out[r] = base[r] * (1 + boost[r]);
+  return out;
 }
 
 /**

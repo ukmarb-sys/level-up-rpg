@@ -10,9 +10,9 @@ are in [`art-source/README.md`](../art-source/README.md).
 | Building | Logical footprint (unchanged) | Canvas | Effects |
 | --- | --- | --- | --- |
 | Cottage | 1×1 (+ garden ground layer) | 544 × 416 | chimney smoke, 5 window glows |
-| Farm | **2×3** | 704 × 544 (height grown for the painted smoke) | none (the smoke is painted) |
-| Sawmill | **2×1** | 448 × 448 | sawdust at the blade (the blade and smoke are painted) |
-| Mage tower | **2×2** | 576 × 1024 | orb glow and runes on the crystal, 5 window and lantern glows |
+| Farm | **2×3** | 704 × 544 (height grown for the painted smoke) | chimney smoke, 6 window/lantern glows, butterflies |
+| Sawmill | **2×1** | 448 × 448 | chimney smoke, 4 window/lantern glows, sawdust at the blade |
+| Mage tower | **2×2** | 576 × 1024 | soft halo and runes on the crystal, 5 window/lantern glows, sparkles on the ground crystals, door rune and spell book |
 
 Gameplay is untouched: footprints, costs, production, collision, placement rules and saves
 (format v1) are all as before. `tests/buildingArt.test.ts` pins the footprints and costs.
@@ -41,11 +41,8 @@ procedural building geometry is gone.
 - **Clipped edges in the source crop.** The farm's right-hand bush and the bush beside the
   sawmill's timber pile end in a straight vertical cut (37 and 29 source px, about 9 and 7 world
   px). It's small, but visible up close.
-- **Painted smoke is static.** The farm and sawmill smoke is part of the painting, so it
-  doesn't drift like the cottage's animated smoke. The farm's selection marker sits above the
-  smoke plume.
-- **Orb glow.** The mage tower's crystal already glows in the painting. The animated orb glow
-  on top of it reads quite bright.
+- **Smoke:** the farm and sawmill smoke plumes are painted; animated puffs rise from the
+  chimneys over them (Visual Overhaul 2.0). The farm's selection marker sits above the plume.
 - **Similar houses.** The farmhouse and the cottage share a red-roof, stone-and-timber style,
   so they're easy to mix up at a glance. The farm's field and fence tell them apart.
 

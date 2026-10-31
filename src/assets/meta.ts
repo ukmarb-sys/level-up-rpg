@@ -57,5 +57,7 @@ export function activeEffects(e: EffectPoints | undefined): { name: (typeof EFFE
   if (e.orb) out.push({ name: 'orb', point: e.orb });
   if (e.wheel) out.push({ name: 'wheel', point: e.wheel });
   for (const w of e.windows ?? []) out.push({ name: 'windows', point: w });
+  for (const w of e.sparkles ?? []) out.push({ name: 'sparkles', point: w });
+  for (const w of e.butterflies ?? []) out.push({ name: 'butterflies', point: w });
   return out;
 }

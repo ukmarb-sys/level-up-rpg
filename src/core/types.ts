@@ -4,7 +4,17 @@ export type ResourceType = 'wood' | 'stone' | 'magic';
 
 export type Resources = Record<ResourceType, number>;
 
-export type BuildingType = 'cottage' | 'farm' | 'sawmill' | 'mageTower';
+export type BuildingType =
+  | 'cottage'
+  | 'farm'
+  | 'sawmill'
+  | 'mageTower'
+  | 'blacksmith'
+  | 'tavern'
+  | 'marketplace'
+  | 'alchemist'
+  | 'temple'
+  | 'castle';
 
 /** Quarter turns clockwise. Odd rotations swap a footprint's width and depth. */
 export type Rotation = 0 | 1 | 2 | 3;
@@ -45,4 +55,6 @@ export type FailureReason =
   | 'out-of-bounds'
   | 'collision'
   | 'insufficient-resources'
+  | 'locked'
+  | 'limit-reached'
   | 'not-found';

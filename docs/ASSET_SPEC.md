@@ -149,6 +149,30 @@ footprint diamond meets the ground.
 | `buildings/mageTower/mageTower_r1.png` | no | 2×2 | 576 × 1024 | (288, 864) | (32, 864) | (544, 864) | (288, 992) |
 | `buildings/mageTower/mageTower_r2.png` | no | 2×2 | 576 × 1024 | (288, 864) | (32, 864) | (544, 864) | (288, 992) |
 | `buildings/mageTower/mageTower_r3.png` | no | 2×2 | 576 × 1024 | (288, 864) | (32, 864) | (544, 864) | (288, 992) |
+| `buildings/blacksmith/blacksmith_r0.png` | no | 2×1 | 448 × 448 | (224, 320) | (32, 288) | (416, 352) | (288, 416) |
+| `buildings/blacksmith/blacksmith_r1.png` | no | 1×2 | 448 × 448 | (224, 320) | (32, 352) | (416, 288) | (160, 416) |
+| `buildings/blacksmith/blacksmith_r2.png` | no | 2×1 | 448 × 448 | (224, 320) | (32, 288) | (416, 352) | (288, 416) |
+| `buildings/blacksmith/blacksmith_r3.png` | no | 1×2 | 448 × 448 | (224, 320) | (32, 352) | (416, 288) | (160, 416) |
+| `buildings/tavern/tavern_r0.png` | no | 2×2 | 576 × 640 | (288, 480) | (32, 480) | (544, 480) | (288, 608) |
+| `buildings/tavern/tavern_r1.png` | no | 2×2 | 576 × 640 | (288, 480) | (32, 480) | (544, 480) | (288, 608) |
+| `buildings/tavern/tavern_r2.png` | no | 2×2 | 576 × 640 | (288, 480) | (32, 480) | (544, 480) | (288, 608) |
+| `buildings/tavern/tavern_r3.png` | no | 2×2 | 576 × 640 | (288, 480) | (32, 480) | (544, 480) | (288, 608) |
+| `buildings/marketplace/marketplace_r0.png` | no | 3×2 | 704 × 512 | (352, 320) | (32, 288) | (672, 352) | (416, 480) |
+| `buildings/marketplace/marketplace_r1.png` | no | 2×3 | 704 × 512 | (352, 320) | (32, 352) | (672, 288) | (288, 480) |
+| `buildings/marketplace/marketplace_r2.png` | no | 3×2 | 704 × 512 | (352, 320) | (32, 288) | (672, 352) | (416, 480) |
+| `buildings/marketplace/marketplace_r3.png` | no | 2×3 | 704 × 512 | (352, 320) | (32, 352) | (672, 288) | (288, 480) |
+| `buildings/alchemist/alchemist_r0.png` | no | 2×2 | 576 × 640 | (288, 480) | (32, 480) | (544, 480) | (288, 608) |
+| `buildings/alchemist/alchemist_r1.png` | no | 2×2 | 576 × 640 | (288, 480) | (32, 480) | (544, 480) | (288, 608) |
+| `buildings/alchemist/alchemist_r2.png` | no | 2×2 | 576 × 640 | (288, 480) | (32, 480) | (544, 480) | (288, 608) |
+| `buildings/alchemist/alchemist_r3.png` | no | 2×2 | 576 × 640 | (288, 480) | (32, 480) | (544, 480) | (288, 608) |
+| `buildings/temple/temple_r0.png` | no | 3×3 | 832 × 768 | (416, 544) | (32, 544) | (800, 544) | (416, 736) |
+| `buildings/temple/temple_r1.png` | no | 3×3 | 832 × 768 | (416, 544) | (32, 544) | (800, 544) | (416, 736) |
+| `buildings/temple/temple_r2.png` | no | 3×3 | 832 × 768 | (416, 544) | (32, 544) | (800, 544) | (416, 736) |
+| `buildings/temple/temple_r3.png` | no | 3×3 | 832 × 768 | (416, 544) | (32, 544) | (800, 544) | (416, 736) |
+| `buildings/castle/castle_r0.png` | no | 4×4 | 1088 × 1280 | (544, 992) | (32, 992) | (1056, 992) | (544, 1248) |
+| `buildings/castle/castle_r1.png` | no | 4×4 | 1088 × 1280 | (544, 992) | (32, 992) | (1056, 992) | (544, 1248) |
+| `buildings/castle/castle_r2.png` | no | 4×4 | 1088 × 1280 | (544, 992) | (32, 992) | (1056, 992) | (544, 1248) |
+| `buildings/castle/castle_r3.png` | no | 4×4 | 1088 × 1280 | (544, 992) | (32, 992) | (1056, 992) | (544, 1248) |
 
 ### Terrain
 
@@ -198,6 +222,30 @@ footprint diamond meets the ground.
 | `mageTower_r1` | (288, 416) | — | (288, 352) | — | (237, 790) (339, 790) |
 | `mageTower_r2` | (288, 416) | — | (288, 352) | — | (237, 790) (339, 790) |
 | `mageTower_r3` | (288, 416) | — | (288, 352) | — | (237, 790) (339, 790) |
+| `blacksmith_r0` | (320, 166) | (320, 174) | — | — | (122, 293) |
+| `blacksmith_r1` | (179, 192) | (179, 200) | — | — | (198, 229) |
+| `blacksmith_r2` | (128, 122) | (128, 130) | — | — | (326, 267) |
+| `blacksmith_r3` | (269, 96) | (269, 104) | — | — | (250, 331) |
+| `tavern_r0` | (422, 237) | (422, 245) | — | — | (122, 477) (390, 509) |
+| `tavern_r1` | (294, 307) | (294, 315) | — | — | (198, 349) (134, 483) |
+| `tavern_r2` | (154, 243) | (154, 251) | — | — | (454, 387) (186, 355) |
+| `tavern_r3` | (282, 173) | (282, 181) | — | — | (378, 515) (442, 381) |
+| `marketplace_r0` | (352, 184) | — | — | — | — |
+| `marketplace_r1` | (352, 184) | — | — | — | — |
+| `marketplace_r2` | (352, 184) | — | — | — | — |
+| `marketplace_r3` | (352, 184) | — | — | — | — |
+| `alchemist_r0` | (403, 242) | (403, 250) | — | — | (186, 509) |
+| `alchemist_r1` | (301, 306) | (301, 314) | — | — | (134, 381) |
+| `alchemist_r2` | (173, 254) | (173, 262) | — | — | (390, 355) |
+| `alchemist_r3` | (275, 190) | (275, 198) | — | — | (442, 483) |
+| `temple_r0` | (416, 208) | — | — | — | — |
+| `temple_r1` | (416, 208) | — | — | — | — |
+| `temple_r2` | (416, 208) | — | — | — | — |
+| `temple_r3` | (416, 208) | — | — | — | — |
+| `castle_r0` | (544, 290) | — | — | — | (288, 1000) (800, 1000) |
+| `castle_r1` | (749, 392) | — | — | — | (288, 744) (288, 1000) |
+| `castle_r2` | (544, 494) | — | — | — | (800, 744) (288, 744) |
+| `castle_r3` | (339, 392) | — | — | — | (800, 1000) (800, 744) |
 
 ### Cottage artwork with an overhanging garden (logical footprint stays 1×1)
 

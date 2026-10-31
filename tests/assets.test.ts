@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDING_ORDER, BUILDINGS } from '../src/core/buildings';
+import { BUILDING_ORDER, BUILDINGS, STARTER_BUILDINGS } from '../src/core/buildings';
 import { footprintSize } from '../src/core/grid';
 import type { Rotation } from '../src/core/types';
 import { ASSET_MANIFEST, buildingKey, manifestByKey, terrainKey } from '../src/assets/manifest';
@@ -29,7 +29,7 @@ describe('asset manifest', () => {
 
   it('marks exactly the r0 buildings and the first terrain tile as required', () => {
     const required = ASSET_MANIFEST.filter((e) => e.required).map((e) => e.key).sort();
-    expect(required).toEqual([...BUILDING_ORDER.map((t) => buildingKey(t, 0)), terrainKey(0)].sort());
+    expect(required).toEqual([...STARTER_BUILDINGS.map((t) => buildingKey(t, 0)), terrainKey(0)].sort());
   });
 
   it('computes canvas sizes and anchors from the footprint', () => {
@@ -110,7 +110,7 @@ describe('sprite resolution and fallbacks', () => {
       '/src/assets/art/buildings/cottage/cottage_r0.webp',
       '../assets/art/terrain/grass_2.png',
       '../assets/art/buildings/cottage/cottage.png',
-      '../assets/art/buildings/castle/castle_r0.png',
+      '../assets/art/buildings/dragonLair/dragonLair_r0.png',
       '../assets/art/props/tree_pine.jpg',
     ]);
     expect(found.get('bld-cottage-r0')).toMatch(/\.webp$/);

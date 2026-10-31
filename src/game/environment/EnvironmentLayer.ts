@@ -25,9 +25,35 @@ export const DEPTH = {
   tone: -999,
   rim: -998,
   details: -900,
+  /** Drifting cloud shadows fall on buildings and props, but stay below the placement preview. */
+  clouds: 7_900,
   /** Glows and particles sit above everything in the world but below the selection marker. */
   ambient: 9_000,
 };
+
+const ENV_CLOUD = 'env-cloud';
+/** World px per cloud-texture pixel: the soft blobs are upscaled (bilinear) to cloud size. */
+const CLOUD_SCALE = 4;
+/** Wind speed of the cloud shadows (world px per second). */
+const CLOUD_SPEED = 7;
+
+/** Soft, irregular cloud shadow: overlapping radial blobs, at most ~12% darkening. */
+function paintCloud(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number) {
+  ctx.clearRect(0, 0, w, h);
+  for (let i = 0; i < 9; i++) {
+    const x = w * (0.18 + hash2(i, seed, 71) * 0.64);
+    const y = h * (0.3 + hash2(i, seed, 72) * 0.4);
+    const r = h * (0.18 + hash2(i, seed, 73) * 0.2);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, 'rgba(10,16,30,0.055)');
+    g.addColorStop(0.6, 'rgba(10,16,30,0.035)');
+    g.addColorStop(1, 'rgba(10,16,30,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(x, y, r * 1.6, r, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
 
 /** World px per tone-field pixel; the field is upscaled with bilinear filtering for smooth blends. */
 const TONE_RES = 8;
@@ -88,6 +114,7 @@ export class EnvironmentLayer {
     this.drawProps();
     this.plan = ambientPlan(this.opts.mapSize, this.props, this.opts.quality);
     this.spawnAmbient();
+    this.spawnClouds();
   }
 
   // --- island ------------------------------------------------------------------------
@@ -268,9 +295,48 @@ export class EnvironmentLayer {
   }
 
   /** Per-frame ambient animation (cheap: sin/cos on a few dozen sprites). */
+  // --- cloud shadows ------------------------------------------------------------------
+  private clouds: { img: Phaser.GameObjects.Image; offset: number; lane: number }[] = [];
+  private cloudSpan = { x0: 0, x1: 0, y0: 0, y1: 0 };
+
+  /**
+   * Two large, very soft cloud shadows drifting across the island: subtle environmental
+   * movement that also varies the light over the settlement. Skipped with reduced motion.
+   */
+  private spawnClouds() {
+    if (!this.opts.quality.animate) return;
+    const tm = this.scene.textures;
+    if (!tm.exists(ENV_CLOUD)) {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 128;
+      paintCloud(c.getContext('2d')!, 256, 128, 5);
+      tm.addCanvas(ENV_CLOUD, c);
+    }
+    const b = this.bounds();
+    const w = 256 * CLOUD_SCALE;
+    this.cloudSpan = { x0: b.minX - w, x1: b.maxX + w, y0: b.minY, y1: b.maxY };
+    const count = this.opts.quality.tier === 'low' ? 1 : 2;
+    for (let i = 0; i < count; i++) {
+      const img = this.scene.add.image(0, 0, ENV_CLOUD).setScale(CLOUD_SCALE * (i ? 0.8 : 1)).setFlipX(i === 1).setDepth(DEPTH.clouds);
+      // the first cloud starts over the island, the second half a cycle behind it
+      this.clouds.push({ img, offset: 0.4 + i * 0.5, lane: 0.42 + i * 0.25 });
+    }
+    this.stats.ambient += this.clouds.length;
+  }
+
   update(time: number) {
     if (!this.opts.quality.animate) return;
     const t = time / 1000;
+    const sp = this.cloudSpan;
+    const travel = sp.x1 - sp.x0;
+    for (const c of this.clouds) {
+      // wind blows down-right across the screen; each cloud wraps round after leaving
+      const k = ((t * CLOUD_SPEED) / travel + c.offset) % 1;
+      const x = sp.x0 + k * travel;
+      const y = sp.y0 + (sp.y1 - sp.y0) * c.lane + (k - 0.5) * 260;
+      c.img.setPosition(x, y);
+    }
     for (const g of this.glows) g.img.setAlpha(g.base * (0.7 + 0.3 * Math.sin(t * (0.9 + (g.seed % 5) * 0.13) + g.seed)));
     for (const f of this.fireflies) {
       const ph = f.seed * 1.7;

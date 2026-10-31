@@ -11,6 +11,9 @@ interface Delta {
   amount: number;
 }
 
+/** Per-minute rates can be fractional once production bonuses apply (6 x 1.1 = 6.6). */
+const fmtRate = (r: number) => (Number.isInteger(r) ? String(r) : r.toFixed(1).replace(/\.0$/, ''));
+
 function ResourceCell({ type, value, rate }: { type: ResourceType; value: number; rate: number }) {
   const prev = useRef(value);
   const seq = useRef(0);
@@ -24,12 +27,12 @@ function ResourceCell({ type, value, rate }: { type: ResourceType; value: number
     return () => clearTimeout(t);
   }, [value]);
 
-  const title = `${LABEL[type]}: ${value}${rate ? ` (+${rate} per minute)` : ''}`;
+  const title = `${LABEL[type]}: ${value}${rate ? ` (+${fmtRate(rate)} per minute)` : ''}`;
   return (
     <div className={`res res--${type}`} title={title} aria-label={title}>
       <ResourceIcon type={type} size={18} />
       <span className="res__value">{value}</span>
-      {rate > 0 && <span className="res__rate">+{rate}/m</span>}
+      {rate > 0 && <span className="res__rate">+{fmtRate(rate)}/m</span>}
       {delta && (
         <span key={delta.id} className={`res__delta ${delta.amount > 0 ? 'up' : 'down'}`} aria-hidden>
           {delta.amount > 0 ? `+${delta.amount}` : delta.amount}

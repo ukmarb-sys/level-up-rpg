@@ -36,11 +36,16 @@ npm run art:webp
 The buildings (`tests/buildingArt.test.ts` checks these pixel for pixel too):
 
 ```bash
-npm run art:import -- art-source/raw/buildings/farm.png --as farm_r0
-npm run art:import -- art-source/raw/buildings/sawmill.png --as sawmill_r0 --effect-src wheel=438,505
+npm run art:import -- art-source/raw/buildings/farm.png --as farm_r0 --effect chimney=510,122 \
+  --effect window=437,219 --effect window=562,224 --effect window=404,286 --effect window=547,299 \
+  --effect window=485,296 --effect window=356,390 \
+  --effect butterfly=203,367 --effect butterfly=300,330 --effect butterfly=585,330 --effect butterfly=413,460
+npm run art:import -- art-source/raw/buildings/sawmill.png --as sawmill_r0 --effect-src wheel=438,505 \
+  --effect chimney=278,155 --effect window=215,203 --effect window=339,236 --effect window=178,281 --effect window=365,287
 npm run art:import -- art-source/raw/buildings/mage_tower.png --as mageTower_r0 --keep-islands \
   --effect window=332,632 --effect window=255,642 --effect window=170,731 \
-  --effect window=184,854 --effect window=302,880
+  --effect window=184,854 --effect window=302,880 \
+  --effect sparkle=129,842 --effect sparkle=447,876 --effect sparkle=414,755 --effect sparkle=244,870 --effect sparkle=368,880
 npm run art:webp
 ```
 

@@ -2,7 +2,7 @@ import { BUILDINGS } from '../core/buildings';
 import { footprintSize } from '../core/grid';
 import { RESOURCE_TYPES } from '../core/resources';
 import type { Mode, Snapshot } from '../core/store';
-import type { BuildingType } from '../core/types';
+import type { BuildingType, ResourceType } from '../core/types';
 import { BuildingIcon, Glyph, ResourceIcon } from './icons';
 
 interface Props {
@@ -21,6 +21,8 @@ const ISSUE_TEXT: Record<NonNullable<Snapshot['ghostIssue']>, string> = {
   collision: 'Blocked — overlaps a building',
   'out-of-bounds': 'Outside the realm',
   'insufficient-resources': 'Not enough resources',
+  locked: 'Not unlocked yet',
+  'limit-reached': 'Your realm already has one',
 };
 
 export function ActionBar(props: Props) {
@@ -31,6 +33,7 @@ export function ActionBar(props: Props) {
   const size = rotation !== undefined ? footprintSize(type, rotation) : { w: def.width, d: def.depth };
   const verb = mode.kind === 'placing' ? 'Place' : mode.kind === 'moving' ? 'Move' : '';
   const produces = RESOURCE_TYPES.filter((r) => def.produces[r]);
+  const boosts = Object.entries(def.boosts ?? {}).filter(([, v]) => v) as [ResourceType | 'all', number][];
 
   return (
     <div className="action-bar" role="toolbar" aria-label={`${verb} ${def.name}`.trim()}>
@@ -51,12 +54,19 @@ export function ActionBar(props: Props) {
             </div>
           ) : (
             <div className="action-bar__status">
-              {produces.length > 0
-                ? produces.map((r) => (
-                    <span key={r} className="action-bar__yield">
-                      <ResourceIcon type={r} size={12} />+{def.produces[r]}/min
-                    </span>
-                  ))
+              {produces.length > 0 || boosts.length > 0
+                ? [
+                    ...produces.map((r) => (
+                      <span key={r} className="action-bar__yield">
+                        <ResourceIcon type={r} size={12} />+{def.produces[r]}/min
+                      </span>
+                    )),
+                    ...boosts.map(([r, v]) => (
+                      <span key={`boost-${r}`} className="action-bar__yield">
+                        {r === 'all' ? 'All production' : <ResourceIcon type={r} size={12} />} +{Math.round(v * 100)}%
+                      </span>
+                    )),
+                  ]
                 : def.description}
             </div>
           )}

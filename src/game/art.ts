@@ -189,10 +189,54 @@ export function drawBuilding(
       spire(g, f.rect(0.52, 0.52, 0.96, 0.96), 71, 40, 0x4b3a99, alpha);
       return proceduralAnchors(type, rotation);
     }
+
+    default: {
+      // Painted-only buildings are never offered without their artwork. This plain massing
+      // only appears if a painted image fails to load at runtime, so a saved building still
+      // shows (and can be selected, moved or demolished).
+      flat(g, f.rect(0.05, 0.05, def.width - 0.1, def.depth - 0.1), 0, 0x6b5a45, alpha);
+      const body = f.rect(0.18, 0.18, def.width - 0.36, def.depth - 0.36);
+      const h = 14 + Math.min(def.width, def.depth) * 8;
+      box(g, body, 0, h, 0xcfc3a8, alpha);
+      gableRoof(g, f.rect(0.1, 0.1, def.width - 0.2, def.depth - 0.2), h, 12 + def.width * 3, f.axis('u'), def.color, 0xcfc3a8, alpha);
+      return proceduralAnchors(type, rotation);
+    }
   }
 }
 
 /** Small soft particle texture ("mote") used by building effects: smoke, glows, puffs. */
+/**
+ * A tiny butterfly (white, tinted per instance), painted at 4x and drawn at 1/4 scale so it
+ * stays crisp. Wings are separate so the flutter is a horizontal squash around the body.
+ */
+export function makeButterflyTexture(scene: Phaser.Scene) {
+  if (scene.textures.exists('butterfly')) return;
+  const c = document.createElement('canvas');
+  c.width = 24;
+  c.height = 20;
+  const ctx = c.getContext('2d')!;
+  const wing = (x: number, y: number, rx: number, ry: number, rot: number, a: number) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(rx, ry));
+    g.addColorStop(0, `rgba(255,255,255,${a})`);
+    g.addColorStop(1, `rgba(235,235,235,${a * 0.85})`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  };
+  wing(6.5, 7, 6, 5, -0.5, 1);
+  wing(17.5, 7, 6, 5, 0.5, 1);
+  wing(8, 14, 4, 3.4, 0.4, 0.95);
+  wing(16, 14, 4, 3.4, -0.4, 0.95);
+  ctx.fillStyle = 'rgba(60,45,40,1)';
+  ctx.fillRect(11, 4, 2, 13);
+  scene.textures.addCanvas('butterfly', c);
+}
+
 export function makeMoteTexture(scene: Phaser.Scene) {
   if (scene.textures.exists('mote')) return;
   const g = scene.make.graphics({ x: 0, y: 0 }, false);

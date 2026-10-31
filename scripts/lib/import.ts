@@ -75,11 +75,11 @@ export interface ObjectImportOptions {
   /** Ground image scale: 'match' = same painted scale as the building (default), 'fit' = span groundRect. */
   groundScale?: 'match' | 'fit';
   /** Effect points given in INPUT image pixels (mapped through the import transform). */
-  effectsSource?: Partial<Record<'chimney' | 'orb' | 'wheel', Pt>> & { windows?: Pt[] };
+  effectsSource?: Partial<Record<'chimney' | 'orb' | 'wheel', Pt>> & { windows?: Pt[]; sparkles?: Pt[]; butterflies?: Pt[] };
   /** Skip removal of small detached specks (default false). */
   keepIslands?: boolean;
   /** Manual effect points in output px; null disables the effect. */
-  effects?: Partial<Record<'chimney' | 'orb' | 'wheel', Pt | null>> & { windows?: Pt[] };
+  effects?: Partial<Record<'chimney' | 'orb' | 'wheel', Pt | null>> & { windows?: Pt[]; sparkles?: Pt[]; butterflies?: Pt[] };
 }
 
 export interface ImportResult {
@@ -312,7 +312,10 @@ export function importObject(source: Raster, baseEntry: AssetEntry, opts: Object
     const i = manual.indexOf(name);
     if (i >= 0) manual.splice(i, 1);
   }
-  if (src.windows) effects.windows = src.windows.map(srcToOut);
+  for (const list of ['windows', 'sparkles', 'butterflies'] as const) {
+    const pts = src[list];
+    if (pts) effects[list] = pts.map(srcToOut);
+  }
   for (const [name, value] of Object.entries(opts.effects ?? {})) {
     (effects as Record<string, unknown>)[name] = value;
     const i = manual.indexOf(name);
@@ -645,7 +648,7 @@ export function importRegistered(source: Raster, baseEntry: AssetEntry, opts: Ob
       if (manual.includes(name)) manual.splice(manual.indexOf(name), 1);
     }
   }
-  if (src.windows) effects.windows = src.windows.map(toOut);
+  for (const list of ['windows', 'sparkles', 'butterflies'] as const) if (src[list]) effects[list] = src[list]!.map(toOut);
   for (const [name, value] of Object.entries(opts.effects ?? {})) {
     (effects as Record<string, unknown>)[name] = value;
     if (manual.includes(name)) manual.splice(manual.indexOf(name), 1);

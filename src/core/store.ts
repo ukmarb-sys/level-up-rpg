@@ -3,7 +3,7 @@
  * It wraps the pure functions in game.ts with interaction state (placing, moving,
  * selection), autosave and events. React reads it via useSyncExternalStore.
  */
-import { BUILDINGS } from './buildings';
+import { availability, BUILDINGS } from './buildings';
 import { EventBus } from './events';
 import { checkPlacement, buildingAt, findNearestFree, clampToMap, nextRotation } from './grid';
 import { createInitialState, demolishBuilding, placeBuilding, relocateBuilding, tick } from './game';
@@ -31,6 +31,8 @@ const FAILURE_TEXT: Record<FailureReason, string> = {
   'out-of-bounds': 'That spot lies beyond the realm.',
   collision: 'Something already stands there.',
   'insufficient-resources': 'Not enough resources.',
+  locked: 'Not unlocked yet.',
+  'limit-reached': 'Your realm already has one.',
   'not-found': 'That building has vanished.',
 };
 
@@ -115,6 +117,15 @@ export class GameStore {
   // --- interactions ----------------------------------------------------------------------
   startPlacing(type: BuildingType) {
     const { state } = this;
+    const avail = availability(type, state.buildings);
+    if (!avail.ok) {
+      const text =
+        avail.reason === 'locked'
+          ? `Build ${avail.missing.map((t) => BUILDINGS[t].name).join(' and ')} first.`
+          : FAILURE_TEXT['limit-reached'];
+      this.events.emit('action:failed', { reason: avail.reason });
+      return this.toast(text, 'error');
+    }
     if (!canAfford(state.resources, BUILDINGS[type].cost)) return this.failed('insufficient-resources');
     const rotation: Rotation = 0;
     const pos =

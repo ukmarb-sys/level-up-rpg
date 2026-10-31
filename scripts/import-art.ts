@@ -14,7 +14,8 @@
  *   --mirror / --no-mirror   force or forbid horizontal mirroring (default: auto-detect)
  *   --key auto|on|off   background removal (default auto)
  *   --tile square|diamond   terrain source type (default auto)
- *   --effect NAME=X,Y   set an effect point in output px (chimney, orb, wheel, window); NAME=none disables
+ *   --effect NAME=X,Y   set an effect point in output px (chimney, orb, wheel, window, sparkle, butterfly);
+ *                       NAME=none disables; window/sparkle/butterfly repeat to build a list
  *   --visual WxD        the art paints a WxD-tile area centred on the logical footprint (e.g. 2x2
  *                       for a 1x1 cottage with a half-tile garden all round); logical footprint unchanged
  *   --visual U0,V0,U1,V1   asymmetric visual footprint in the building's local tile frame
@@ -26,7 +27,7 @@
  *   --base-fill F       fraction of the logical footprint width the base spans (default 1)
  *   --ground-rect U0,V0,U1,V1   with --base: tiles (local frame) an independent --ground image covers
  *   --ground-scale match|fit    ground image at the building's painted scale (default) or fitted to the rect
- *   --effect-src NAME=X,Y       effect point in INPUT image pixels (chimney, orb, wheel, window)
+ *   --effect-src NAME=X,Y       effect point in INPUT image pixels (chimney, orb, wheel, window, sparkle, butterfly)
  *   --keep-islands      keep small detached pieces (sparks, motes) instead of removing them as specks
  *   --dry-run           report only; write nothing
  * Writes: src/assets/art/<path>.png, src/assets/art/art-meta.json, art-previews/<name>.preview.png
@@ -68,7 +69,7 @@ function parseArgs(argv: string[]) {
     mirror: 'auto' as 'auto' | boolean,
     key: 'auto' as 'auto' | 'on' | 'off',
     tile: 'auto' as 'auto' | 'square' | 'diamond',
-    effects: {} as Record<string, Pt | null> & { windows?: Pt[] },
+    effects: {} as Record<string, Pt | null> & { windows?: Pt[]; sparkles?: Pt[]; butterflies?: Pt[] },
     dryRun: false,
     keepIslands: false,
     visual: undefined as string | undefined,
@@ -79,7 +80,7 @@ function parseArgs(argv: string[]) {
     baseFill: undefined as number | undefined,
     groundRect: undefined as string | undefined,
     groundScale: 'match' as 'match' | 'fit',
-    effectsSource: {} as Record<string, Pt> & { windows?: Pt[] },
+    effectsSource: {} as Record<string, Pt> & { windows?: Pt[]; sparkles?: Pt[]; butterflies?: Pt[] },
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -105,19 +106,17 @@ function parseArgs(argv: string[]) {
     } else if (a === '--base-fill') opts.baseFill = Number(next());
     else if (a === '--ground-rect') opts.groundRect = next();
     else if (a === '--ground-scale') opts.groundScale = next() as 'match' | 'fit';
-    else if (a === '--effect-src') {
-      const m = /^(chimney|orb|wheel|window|windows)=(-?\d+),(-?\d+)$/.exec(next());
-      if (!m) fail('Use --effect-src chimney=X,Y (input image pixels)');
-      const point = { x: Number(m[2]), y: Number(m[3]) };
-      if (m[1].startsWith('window')) opts.effectsSource.windows = [...(opts.effectsSource.windows ?? []), point];
-      else opts.effectsSource[m[1]] = point;
-    }
-    else if (a === '--effect') {
-      const m = /^(chimney|orb|wheel|window|windows)=(none|(-?\d+),(-?\d+))$/.exec(next());
-      if (!m) fail('Use --effect chimney=X,Y | orb=X,Y | wheel=X,Y | window=X,Y | NAME=none');
+    else if (a === '--effect-src' || a === '--effect') {
+      const src = a === '--effect-src';
+      const m = /^(chimney|orb|wheel|windows?|sparkles?|butterfly|butterflies)=(none|(-?\d+),(-?\d+))$/.exec(next());
+      if (!m || (src && m[2] === 'none')) {
+        fail(`Use ${a} chimney=X,Y | orb=X,Y | wheel=X,Y | window=X,Y | sparkle=X,Y | butterfly=X,Y${src ? ' (input image pixels)' : ' | NAME=none'}`);
+      }
       const point = m[2] === 'none' ? null : { x: Number(m[3]), y: Number(m[4]) };
-      if (m[1].startsWith('window')) opts.effects.windows = point ? [...(opts.effects.windows ?? []), point] : [];
-      else opts.effects[m[1]] = point;
+      const list = m[1].startsWith('window') ? 'windows' : m[1].startsWith('sparkle') ? 'sparkles' : m[1].startsWith('butterfl') ? 'butterflies' : null;
+      const target = (src ? opts.effectsSource : opts.effects) as Record<string, unknown>;
+      if (list) target[list] = point ? [...((target[list] as Pt[] | undefined) ?? []), point] : [];
+      else target[m[1]] = point;
     } else if (a.startsWith('--')) fail(`Unknown option ${a}`);
     else opts.input = a;
   }

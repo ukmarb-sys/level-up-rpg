@@ -115,8 +115,14 @@ function VectorBuildingIcon({ type, size = 48 }: { type: BuildingType; size?: nu
   }
 }
 
-export function Glyph({ name }: { name: 'rotate' | 'check' | 'close' | 'move' | 'trash' | 'menu' | 'plus' | 'minus' | 'chevronUp' | 'chevronDown' }) {
-  const p = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true } as const;
+export function Glyph({
+  name,
+  size = 22,
+}: {
+  name: 'rotate' | 'check' | 'close' | 'move' | 'trash' | 'menu' | 'plus' | 'minus' | 'chevronUp' | 'chevronDown' | 'lock';
+  size?: number;
+}) {
+  const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true } as const;
   switch (name) {
     case 'rotate':
       return <svg {...p}><path d="M20 12a8 8 0 1 1-2.3-5.6" /><path d="M20 4v5h-5" /></svg>;
@@ -138,5 +144,7 @@ export function Glyph({ name }: { name: 'rotate' | 'check' | 'close' | 'move' | 
       return <svg {...p}><path d="m6 15 6-6 6 6" /></svg>;
     case 'chevronDown':
       return <svg {...p}><path d="m6 9 6 6 6-6" /></svg>;
+    case 'lock':
+      return <svg {...p}><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>;
   }
 }

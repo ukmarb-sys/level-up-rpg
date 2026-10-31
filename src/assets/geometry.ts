@@ -77,6 +77,8 @@ export interface ArtAnchors {
   /** Saw blade on the sawmill. */
   wheel?: Pt;
   windows?: Pt[];
+  sparkles?: Pt[];
+  butterflies?: Pt[];
   crops?: { rows: Pt[][] };
   /** Top of the building, used for the selection marker. */
   top: Pt;
@@ -124,6 +126,40 @@ export function proceduralAnchors(type: BuildingType, rotation: Rotation): ArtAn
     }
     case 'mageTower':
       return { orb: P(1, 1, 128), windows: [P(0.6 + 0.5, 1.5, 28), P(1.5, 1.1, 28)], top: P(1, 1, 112) };
+    // Later buildings are painted-only; these are reference points for imported art (the
+    // importer and art-meta.json replace them with measured ones).
+    case 'blacksmith': {
+      const c = f.point(1.55, 0.3);
+      const w = f.point(0.7, 1);
+      return { chimney: P(c.x, c.y, 42), windows: [P(w.x, w.y, 10)], top: P(c.x, c.y, 44) };
+    }
+    case 'tavern': {
+      const c = f.point(1.5, 0.45);
+      const w1 = f.point(0.7, 2);
+      const w2 = f.point(2, 1.2);
+      return { chimney: P(c.x, c.y, 58), windows: [P(w1.x, w1.y, 12), P(w2.x, w2.y, 12)], top: P(c.x, c.y, 60) };
+    }
+    case 'marketplace': {
+      const t = f.point(1.5, 1);
+      return { top: P(t.x, t.y, 34) };
+    }
+    case 'alchemist': {
+      const c = f.point(1.4, 0.5);
+      const s1 = f.point(0.6, 1.7);
+      const w = f.point(1.2, 2);
+      return { chimney: P(c.x, c.y, 56), sparkles: [P(s1.x, s1.y, 6)], windows: [P(w.x, w.y, 12)], top: P(c.x, c.y, 58) };
+    }
+    case 'temple': {
+      const t = f.point(1.5, 1.5);
+      const s1 = f.point(1.5, 3);
+      return { sparkles: [P(s1.x, s1.y, 10)], top: P(t.x, t.y, 84) };
+    }
+    case 'castle': {
+      const t = f.point(1.2, 1.2);
+      const w1 = f.point(2, 4);
+      const w2 = f.point(4, 2);
+      return { windows: [P(w1.x, w1.y, 30), P(w2.x, w2.y, 30)], top: P(t.x, t.y, 150) };
+    }
   }
 }
 
