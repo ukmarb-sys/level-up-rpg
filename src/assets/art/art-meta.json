@@ -1,1 +1,61 @@
-{}
+{
+  "buildings/cottage/cottage_r0": {
+    "visual": {
+      "u0": -0.25,
+      "v0": -1,
+      "u1": 1.25,
+      "v1": 1.25
+    },
+    "height": 416,
+    "top": {
+      "x": 221,
+      "y": 37
+    },
+    "effects": {
+      "windows": [
+        {
+          "x": 294,
+          "y": 284
+        },
+        {
+          "x": 196,
+          "y": 288
+        },
+        {
+          "x": 296,
+          "y": 192
+        },
+        {
+          "x": 223,
+          "y": 276
+        },
+        {
+          "x": 152,
+          "y": 184
+        }
+      ],
+      "chimney": {
+        "x": 220,
+        "y": 38
+      }
+    },
+    "import": {
+      "source": "levelup_cottage.png",
+      "base": {
+        "left": 125,
+        "right": 770,
+        "front": 890
+      },
+      "baseFill": 1,
+      "scale": 0.3969,
+      "mirrored": false,
+      "groundRect": {
+        "u0": 0,
+        "v0": -1,
+        "u1": 1,
+        "v1": 0
+      },
+      "groundScale": "match"
+    }
+  }
+}

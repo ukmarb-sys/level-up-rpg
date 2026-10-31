@@ -21,6 +21,12 @@
  *   --ground FILE       ground layer (garden/path/shadow) exported at the same size as the input
  *   --height PX         canvas height (multiple of 32); default grows automatically for tall art
  *   --no-auto-height    shrink tall art to the default canvas instead of growing it
+ *   --base L,R,FRONT    register by the building base (input px: base left x, right x, front-corner y);
+ *                       the base fills the logical footprint and the rest becomes overhang (needs --visual)
+ *   --base-fill F       fraction of the logical footprint width the base spans (default 1)
+ *   --ground-rect U0,V0,U1,V1   with --base: tiles (local frame) an independent --ground image covers
+ *   --ground-scale match|fit    ground image at the building's painted scale (default) or fitted to the rect
+ *   --effect-src NAME=X,Y       effect point in INPUT image pixels (chimney, orb, wheel, window)
  *   --keep-islands      keep small detached pieces (sparks, motes) instead of removing them as specks
  *   --dry-run           report only; write nothing
  * Writes: src/assets/art/<path>.png, src/assets/art/art-meta.json, art-previews/<name>.preview.png
@@ -69,6 +75,11 @@ function parseArgs(argv: string[]) {
     ground: undefined as string | undefined,
     height: undefined as number | undefined,
     autoHeight: true,
+    base: undefined as { left: number; right: number; front: number } | undefined,
+    baseFill: undefined as number | undefined,
+    groundRect: undefined as string | undefined,
+    groundScale: 'match' as 'match' | 'fit',
+    effectsSource: {} as Record<string, Pt> & { windows?: Pt[] },
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -87,6 +98,20 @@ function parseArgs(argv: string[]) {
     else if (a === '--ground') opts.ground = next();
     else if (a === '--height') opts.height = Number(next());
     else if (a === '--no-auto-height') opts.autoHeight = false;
+    else if (a === '--base') {
+      const n = next().split(',').map(Number);
+      if (n.length !== 3 || !n.every(Number.isFinite)) fail('--base needs L,R,FRONT in input pixels, e.g. --base 125,770,890');
+      opts.base = { left: n[0], right: n[1], front: n[2] };
+    } else if (a === '--base-fill') opts.baseFill = Number(next());
+    else if (a === '--ground-rect') opts.groundRect = next();
+    else if (a === '--ground-scale') opts.groundScale = next() as 'match' | 'fit';
+    else if (a === '--effect-src') {
+      const m = /^(chimney|orb|wheel|window|windows)=(-?\d+),(-?\d+)$/.exec(next());
+      if (!m) fail('Use --effect-src chimney=X,Y (input image pixels)');
+      const point = { x: Number(m[2]), y: Number(m[3]) };
+      if (m[1].startsWith('window')) opts.effectsSource.windows = [...(opts.effectsSource.windows ?? []), point];
+      else opts.effectsSource[m[1]] = point;
+    }
     else if (a === '--effect') {
       const m = /^(chimney|orb|wheel|window|windows)=(none|(-?\d+),(-?\d+))$/.exec(next());
       if (!m) fail('Use --effect chimney=X,Y | orb=X,Y | wheel=X,Y | window=X,Y | NAME=none');
@@ -176,9 +201,20 @@ function main() {
         fail((e as Error).message);
       }
       const ground = opts.ground ? decodeImage(readFileSync(opts.ground)) : undefined;
+      let groundRect: LocalBounds | undefined;
+      if (opts.groundRect) {
+        const n = opts.groundRect.split(',').map(Number);
+        if (n.length !== 4 || !n.every(Number.isFinite)) fail('--ground-rect needs U0,V0,U1,V1');
+        groundRect = { u0: n[0], v0: n[1], u1: n[2], v1: n[3] };
+      }
       result = importObject(src, entry, {
         visual,
         ground,
+        base: opts.base,
+        baseFill: opts.baseFill,
+        groundRect,
+        groundScale: opts.groundScale,
+        effectsSource: opts.effectsSource,
         height: opts.height,
         autoHeight: opts.autoHeight,
         fill: opts.fill,
@@ -233,4 +269,10 @@ function main() {
   if (mine.some((i) => i.severity === 'error')) process.exit(1);
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) main();
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  try {
+    main();
+  } catch (e) {
+    fail((e as Error).message);
+  }
+}

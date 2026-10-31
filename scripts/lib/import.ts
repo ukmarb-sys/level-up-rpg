@@ -12,8 +12,12 @@ import type { LocalBounds } from '../../src/assets/geometry';
 import type { AssetEntry, EffectPoints } from '../../src/assets/manifest';
 import { applyMeta, type ArtMetaEntry } from '../../src/assets/meta';
 import { diamondCorners, logicalCorners, overhangs, PAD } from '../../src/assets/spec';
+import { rotateBounds } from '../../src/assets/geometry';
+import { gridToSource } from '../../src/assets/spec';
 import {
+  alphaStats,
   applyDiamondMask,
+  cleanAlpha,
   blit,
   countTransparent,
   createRaster,
@@ -49,6 +53,23 @@ export interface ObjectImportOptions {
   autoHeight?: boolean;
   /** Optional ground layer (garden, path, shadow), same pixel size as the building image. */
   ground?: Raster;
+  /**
+   * Register the art by its building base instead of fitting it to the footprint: input-pixel x
+   * of the base's left and right corners and y of its front corner. The base is scaled to the
+   * LOGICAL footprint (times baseFill) so decoration painted around it becomes overhang.
+   */
+  base?: { left: number; right: number; front: number };
+  /** Fraction of the logical footprint width the base spans (default 1). */
+  baseFill?: number;
+  /**
+   * With `base`: place an independent ground image (any size) on this tile rectangle (local
+   * frame), instead of requiring a same-size layer.
+   */
+  groundRect?: LocalBounds;
+  /** Ground image scale: 'match' = same painted scale as the building (default), 'fit' = span groundRect. */
+  groundScale?: 'match' | 'fit';
+  /** Effect points given in INPUT image pixels (mapped through the import transform). */
+  effectsSource?: Partial<Record<'chimney' | 'orb' | 'wheel', Pt>> & { windows?: Pt[] };
   /** Skip removal of small detached specks (default false). */
   keepIslands?: boolean;
   /** Manual effect points in output px; null disables the effect. */
@@ -116,6 +137,17 @@ function unionAlpha(a: Raster, b?: Raster): Raster {
   return out;
 }
 
+/** Cleans generator alpha (haze + not-quite-opaque bodies) when the image shows those symptoms. */
+function fixAlpha(r: Raster, notes: string[], label = '') {
+  const st = alphaStats(r);
+  if (st.max < 250 || st.haze > st.total * 0.001) {
+    const n = cleanAlpha(r);
+    notes.push(
+      `Cleaned alpha${label}: max alpha was ${st.max}, ${st.haze} near-invisible haze px — body made fully opaque, haze removed, soft edges kept (${n} px adjusted)`,
+    );
+  }
+}
+
 /** Largest canvas height the importer will grow to (source px). */
 export const MAX_CANVAS_HEIGHT = 4096;
 
@@ -138,8 +170,10 @@ export function importObject(source: Raster, baseEntry: AssetEntry, opts: Object
     );
   }
 
+  if (opts.base) return importRegistered(source, baseEntry, opts);
   const prep = (r: Raster, label: string) => {
     const work: Raster = { width: r.width, height: r.height, data: new Uint8Array(r.data) };
+    fixAlpha(work, notes, label);
     prepareAlpha(work, opts.key ?? 'auto', notes);
     const specks = opts.keepIslands ? 0 : despeckle(work);
     if (specks) notes.push(`Removed ${specks} px of stray specks${label}`);
@@ -274,14 +308,16 @@ export function measureObject(r: Raster, entry: AssetEntry): { top: Pt; windows:
 
   const warm = (i: number) => {
     const [R, G, B, A] = [r.data[i], r.data[i + 1], r.data[i + 2], r.data[i + 3]];
-    return A > 200 && R > 190 && G > 120 && B < 150 && R - B > 70 && (R + G) / 2 > 160;
+    // Lit windows/lanterns are saturated yellow (high green, low blue). Sunlit terracotta roof
+    // highlights are peach (green and blue both mid), so they must not match.
+    return A > 200 && R > 230 && G > 190 && B < 130 && G - B > 90;
   };
   const orbLike = (i: number) => {
     const [R, G, B, A] = [r.data[i], r.data[i + 1], r.data[i + 2], r.data[i + 3]];
     return A > 180 && (R + G + B) / 3 > 200 && B >= R - 10;
   };
   const windows = clusters(r, warm, { minY: b.minY, maxY: b.maxY }, 12)
-    .slice(0, 4)
+    .slice(0, 6)
     .map((c) => c.centre);
   const orbZone = { minY: b.minY, maxY: b.minY + Math.round((b.maxY - b.minY) * 0.35) };
   const orb = entry.effects && 'orb' in entry.effects ? (clusters(r, orbLike, orbZone, 10)[0]?.centre ?? null) : null;
@@ -400,4 +436,156 @@ export function renderPreview(r: Raster, baseEntry: AssetEntry, meta?: ArtMetaEn
   const fx = entry.effects ?? {};
   for (const p of [fx.chimney, fx.orb, fx.wheel, ...(fx.windows ?? [])]) if (p) cross(out, p, 5, [255, 60, 220, 255]);
   return out;
+}
+
+/**
+ * Import registered by the building's base (see ObjectImportOptions.base): the base lands
+ * exactly on the logical footprint, everything painted around it becomes visual overhang, and an
+ * optional independent ground image is placed on `groundRect` at the same painted scale.
+ */
+export function importRegistered(source: Raster, baseEntry: AssetEntry, opts: ObjectImportOptions): ImportResult {
+  const notes: string[] = [];
+  const warnings: string[] = [];
+  const base = opts.base!;
+  if (!baseEntry.building) throw new Error('--base only applies to building sprites');
+  if (!opts.visual) throw new Error('--base needs --visual: the area the painted decoration covers');
+  if (opts.ground && !opts.groundRect) throw new Error('With --base, give --ground-rect for the ground image');
+  if (!(base.right > base.left)) throw new Error('--base: right must be greater than left');
+  const { type, rotation } = baseEntry.building;
+  const baseFill = opts.baseFill ?? 1;
+  const metaFor = (height?: number): ArtMetaEntry => ({ visual: opts.visual, ...(height !== undefined ? { height } : {}) });
+  let height = opts.height;
+  let entry = applyMeta(baseEntry, { [baseEntry.file]: metaFor(height) });
+
+  const prep = (r: Raster, label: string) => {
+    const work: Raster = { width: r.width, height: r.height, data: new Uint8Array(r.data) };
+    fixAlpha(work, notes, label);
+    prepareAlpha(work, opts.key ?? 'auto', notes);
+    const specks = opts.keepIslands ? 0 : despeckle(work);
+    if (specks) notes.push(`Removed ${specks} px of stray specks${label}`);
+    return work;
+  };
+
+  // Building layer: scale so the base spans the logical footprint, front corner on the logical front corner.
+  let main = prep(source, '');
+  const W0 = source.width;
+  let left = base.left;
+  let right = base.right;
+  if (opts.mirror === true) {
+    main = flipX(main);
+    [left, right] = [W0 - 1 - base.right, W0 - 1 - base.left];
+  }
+  const b = opaqueBounds(main);
+  if (!b) throw new Error('The image is empty after background removal');
+  const art = crop(main, b);
+  const L = logicalCorners(entry.geometry);
+  const logicalWidth = L.right.x - L.left.x;
+  const s = (logicalWidth * baseFill) / (right - left);
+  const rw = Math.max(1, Math.round(art.width * s));
+  const rh = Math.max(1, Math.round(art.height * s));
+  const ox = L.left.x + (logicalWidth * (1 - baseFill)) / 2 - (left - b.minX) * s;
+  let oy = L.bottom.y + (opts.offsetY ?? 0) - (base.front - b.minY) * s;
+  notes.push(`Registered the base (x ${base.left}–${base.right}, front y ${base.front}) to the logical ${entry.geometry.footprint.w}x${entry.geometry.footprint.d} footprint: scale ${s.toFixed(4)}`);
+  if (s > 1.05) warnings.push(`Source art is small: upscaled ${s.toFixed(2)}x.`);
+
+  // Ground layer: an independent image placed on groundRect.
+  let gPlaced: { art: Raster; w: number; h: number; x: number; y: number } | undefined;
+  if (opts.ground && opts.groundRect) {
+    const v = opts.visual;
+    const r = opts.groundRect;
+    if (r.u0 < v.u0 || r.v0 < v.v0 || r.u1 > v.u1 || r.v1 > v.v1) throw new Error('--ground-rect must lie inside --visual');
+    const g = prep(opts.ground, ' (ground layer)');
+    const gb = opaqueBounds(g);
+    if (!gb) throw new Error('The ground image is empty after background removal');
+    let gArt = crop(g, gb);
+    if (opts.mirror === true) gArt = flipX(gArt);
+    const rect = rotateBounds(type, rotation, r);
+    const geo = entry.geometry;
+    const front = gridToSource(geo, rect.x + rect.w, rect.y + rect.d);
+    const gl = gridToSource(geo, rect.x, rect.y + rect.d);
+    const gr = gridToSource(geo, rect.x + rect.w, rect.y);
+    const sg = opts.groundScale === 'fit' ? ((gr.x - gl.x) * (opts.fill ?? 0.96)) / gArt.width : s;
+    const w = Math.max(1, Math.round(gArt.width * sg));
+    const h = Math.max(1, Math.round(gArt.height * sg));
+    gPlaced = { art: gArt, w, h, x: Math.round((gl.x + gr.x) / 2 - w / 2), y: front.y - h + 1 };
+    notes.push(
+      `Placed the ground image on tiles u ${r.u0}..${r.u1}, v ${r.v0}..${r.v1} at ${opts.groundScale === 'fit' ? 'fitted' : 'the same painted'} scale (${sg.toFixed(4)})`,
+    );
+  }
+
+  // Canvas height: grow for tall art, and (unless --height was given) trim unused headroom.
+  const minTop = Math.min(oy, gPlaced ? gPlaced.y : Infinity);
+  const H0 = entry.geometry.canvas.height;
+  let dH = 0;
+  if (minTop < TOP_MARGIN) dH = Math.ceil((TOP_MARGIN - minTop) / 32) * 32;
+  else if (opts.height === undefined && opts.autoHeight !== false) dH = -Math.min(H0 - 128, Math.floor((minTop - TOP_MARGIN) / 32) * 32);
+  if (dH !== 0) {
+    if (H0 + dH > MAX_CANVAS_HEIGHT) throw new Error(`Art needs a canvas taller than ${MAX_CANVAS_HEIGHT}px`);
+    height = H0 + dH;
+    entry = applyMeta(baseEntry, { [baseEntry.file]: metaFor(height) });
+    oy += dH;
+    if (gPlaced) gPlaced.y += dH;
+    notes.push(`Canvas height ${dH > 0 ? 'grown' : 'trimmed'} ${H0} → ${height} px (recorded in art-meta.json)`);
+  }
+  const { width: W, height: H } = entry.geometry.canvas;
+  const fits = (x: number, w: number) => x >= 2 && x + w <= W - 2;
+  if (!fits(Math.round(ox), rw) || (gPlaced && !fits(gPlaced.x, gPlaced.w))) {
+    throw new Error('The art is wider than the --visual footprint allows; enlarge --visual (or lower --base-fill)');
+  }
+
+  const out = createRaster(W, H);
+  blit(out, resize(art, rw, rh), Math.round(ox), Math.round(oy));
+  let groundOut: Raster | undefined;
+  if (gPlaced) {
+    groundOut = createRaster(W, H);
+    blit(groundOut, resize(gPlaced.art, gPlaced.w, gPlaced.h), gPlaced.x, gPlaced.y);
+  }
+
+  // Effect points: measured, from input-pixel coordinates, or given directly.
+  const toOut = (p: Pt): Pt => {
+    const x = opts.mirror === true ? W0 - 1 - p.x : p.x;
+    return { x: Math.round(ox + (x - b.minX) * s), y: Math.round(oy + (p.y - b.minY) * s) };
+  };
+  const measured = measureObject(out, entry);
+  const effects: EffectPoints = {};
+  const manual: string[] = [];
+  const ref = entry.effects ?? {};
+  if (ref.windows) effects.windows = measured.windows;
+  if ('orb' in ref) {
+    effects.orb = measured.orb;
+    if (!measured.orb) manual.push('orb');
+  }
+  for (const name of ['chimney', 'wheel'] as const) {
+    if (name in ref) {
+      effects[name] = null;
+      manual.push(name);
+    }
+  }
+  const src = opts.effectsSource ?? {};
+  for (const name of ['chimney', 'orb', 'wheel'] as const) {
+    const p = src[name];
+    if (p) {
+      effects[name] = toOut(p);
+      if (manual.includes(name)) manual.splice(manual.indexOf(name), 1);
+    }
+  }
+  if (src.windows) effects.windows = src.windows.map(toOut);
+  for (const [name, value] of Object.entries(opts.effects ?? {})) {
+    (effects as Record<string, unknown>)[name] = value;
+    if (manual.includes(name)) manual.splice(manual.indexOf(name), 1);
+  }
+  if (effects.windows) notes.push(`Window glow points: ${effects.windows.length}`);
+  const meta: ArtMetaEntry = {
+    ...metaFor(height),
+    top: measured.top,
+    effects,
+    import: {
+      base,
+      baseFill,
+      scale: Number(s.toFixed(4)),
+      mirrored: opts.mirror === true,
+      ...(opts.groundRect ? { groundRect: opts.groundRect, groundScale: opts.groundScale ?? 'match' } : {}),
+    },
+  };
+  return { raster: out, ground: groundOut, meta, notes, warnings, manual };
 }

@@ -132,6 +132,8 @@ exactly as before: at the centre of the tiles the building occupies.
 - **Picking:** `CityScene.pick` checks the upright art pixel by pixel (`spritePixelAt` +
   `textures.getPixelAlpha`) from the front-most building backwards, then the tapped tile, then
   ground layers (`resolveTap`).
+- **Preview over painted art:** painted art can fully cover its own tile, so the placement
+  preview repeats the collision outline above the art and tints painted art red while blocked.
 - **Outlines:** the selection highlight and the placement preview draw the logical diamond solid
   and the visual footprint dashed (`drawnVisualRect` mirrors it with the image).
 - **Level of detail:** `lodTextureKey` (`src/game/assets.ts`) lazily creates ½- and ¼-size copies

@@ -69,7 +69,15 @@ export class CityScene extends Phaser.Scene {
   private dpr = 1;
   private userZoom = 1;
   private views = new Map<string, BuildingView>();
-  private ghost?: { key: string; container: Phaser.GameObjects.Container; base: Phaser.GameObjects.Graphics; visual: GridRect };
+  private ghost?: {
+    key: string;
+    container: Phaser.GameObjects.Container;
+    base: Phaser.GameObjects.Graphics;
+    /** Collision outline drawn above the preview art, which can fully cover its own tile. */
+    overlay: Phaser.GameObjects.Graphics;
+    sprites: Phaser.GameObjects.Image[];
+    visual: GridRect;
+  };
   private selection!: Phaser.GameObjects.Graphics;
   private marker!: Phaser.GameObjects.Container;
   private grid!: Phaser.GameObjects.Graphics;
@@ -625,10 +633,12 @@ export class CityScene extends Phaser.Scene {
       const container = this.add.container(0, 0);
       const base = this.add.graphics();
       const art = this.add.container(0, 0);
-      container.add([base, art]);
+      const overlay = this.add.graphics();
+      container.add([base, art, overlay]);
       const parts = this.addBuildingVisual(art, mode.type, mode.rotation, 0.75, 'container');
+      const sprites = [parts.sprite?.img, parts.ground?.img].filter((i): i is Phaser.GameObjects.Image => !!i);
       this.tweens.add({ targets: art, y: -4, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-      this.ghost = { key, container, base, visual: parts.visual };
+      this.ghost = { key, container, base, overlay, sprites, visual: parts.visual };
     }
     const { w, d } = footprintSize(mode.type, mode.rotation);
     const p = isoPoint(mode.pos.x, mode.pos.y);
@@ -642,6 +652,15 @@ export class CityScene extends Phaser.Scene {
     // A dashed outline shows decorative overhang, which never blocks placement.
     const v = this.ghost.visual;
     if (v.x !== 0 || v.y !== 0 || v.w !== w || v.d !== d) this.dashedRect(base, v, 0, 0, 0xffffff, 0.55);
+    // Painted art can hide the diamond beneath it, so repeat the collision outline on top and
+    // tint the preview red while the spot is blocked.
+    const overlay = this.ghost.overlay.clear();
+    overlay.lineStyle(2, colour, 0.9);
+    overlay.strokePoints([isoPoint(0, 0), isoPoint(w, 0), isoPoint(w, d), isoPoint(0, d)], true);
+    for (const img of this.ghost.sprites) {
+      if (ghostValid) img.clearTint();
+      else img.setTint(0xff8a8a);
+    }
   }
 
   private setViewVisible(v: BuildingView, visible: boolean) {

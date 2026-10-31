@@ -64,7 +64,22 @@ export function validateArt(files: ArtFile[], opts: { strict?: boolean; meta?: A
 
   for (const entry of ASSET_MANIFEST) {
     const candidates = byKey.get(entry.key) ?? [];
-    if (candidates.length > 1) {
+    const master = candidates.find((c) => c.path.endsWith('.png'));
+    const shipped = candidates.find((c) => c.path.endsWith('.webp'));
+    if (master && shipped) {
+      // The game ships the WebP; the PNG is the master that gets the full pixel checks.
+      const mi = readImageInfo(master.data);
+      const si = readImageInfo(shipped.data);
+      if (mi && si && (mi.width !== si.width || mi.height !== si.height)) {
+        add('error', shipped.path, `Both WebP and PNG exist but differ in size (${si.width}x${si.height} vs ${mi.width}x${mi.height}); the WebP is stale — run npm run art:webp`);
+      } else {
+        add(
+          'info',
+          shipped.path,
+          `Both WebP and PNG exist: the game ships the WebP (${Math.round(shipped.data.length / 1024)} KB); the PNG master (${Math.round(master.data.length / 1024)} KB) is pixel-checked`,
+        );
+      }
+    } else if (candidates.length > 1) {
       add('warning', candidates.map((c) => c.path).join(' + '), `Both WebP and PNG exist for ${entry.key}; the game uses ${found.get(entry.key)}`);
     }
     const effective = applyMeta(entry, meta);
@@ -72,10 +87,11 @@ export function validateArt(files: ArtFile[], opts: { strict?: boolean; meta?: A
       add('error', candidates[0].path, `Ground layer without its building sprite ${manifestByKey.get(entry.layerOf!)!.file}.png`);
     }
     // A building's alignment is judged on its upright art plus its ground layer (if any).
-    const groundPath = entry.kind === 'building' ? found.get(groundKey(entry.key)) : undefined;
-    const groundFile = groundPath ? files.find((f) => f.path === groundPath) : undefined;
-    const companion = groundFile ? (decodePng(groundFile.data) ?? undefined) : undefined;
-    for (const f of candidates) checkFile(effective, f, add, entry.file in meta, companion);
+    // Use the ground layer's PNG master (WebP can't be pixel-decoded here).
+    const groundFiles = entry.kind === 'building' ? (byKey.get(groundKey(entry.key)) ?? []) : [];
+    const groundMaster = groundFiles.find((f) => f.path.endsWith('.png'));
+    const companion = groundMaster ? (decodePng(groundMaster.data) ?? undefined) : undefined;
+    for (const f of candidates) checkFile(effective, f, add, entry.file in meta, companion, !!master && f !== master);
   }
   checkMeta(meta, found, add);
   const fallbacks = rotationFallbacks(found);
@@ -195,6 +211,8 @@ function checkFile(
   add: (s: Severity, file: string, m: string) => void,
   hasMeta = false,
   companion?: RgbaImage,
+  /** A PNG master of the same asset exists and receives the pixel checks. */
+  hasMaster = false,
 ) {
   const info = readImageInfo(f.data);
   if (!info) return add('error', f.path, 'Unreadable or unsupported image (use PNG or WebP)');
@@ -210,7 +228,7 @@ function checkFile(
   if (!info.hasAlpha) return add('error', f.path, 'No alpha channel — background must be transparent');
   if (info.encodingIssue) return add('error', f.path, info.encodingIssue);
   if (info.format === 'webp') {
-    add('warning', f.path, 'WebP: size/alpha checked; pixel alignment is only verified on PNG masters');
+    if (!hasMaster) add('warning', f.path, 'WebP: size/alpha checked; pixel alignment is only verified on PNG masters');
     return;
   }
   const img = decodePng(f.data);
