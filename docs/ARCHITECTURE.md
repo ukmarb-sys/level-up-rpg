@@ -23,7 +23,9 @@ src/
     art.ts         Procedural fallback art (buildings, props, ground textures)
     assets.ts      Loads artwork via import.meta.glob, builds anchored sprites
     noise.ts       Deterministic value noise for terrain variation
-    props.ts       Scenery layout on the ring outside the playable grid
+    props.ts       Scenery layout on the ring outside the playable grid (readability rules)
+    environment/   Enchanted Wilderness: tone field, details, ambient life, quality tiers,
+                   canvas painters, texture atlases, EnvironmentLayer (see ENVIRONMENT.md)
     CityScene.ts   Map, buildings, ghost, grid overlay, animations, pan/pinch/wheel input
     createGame.ts  Boots Phaser at device pixel ratio inside a DOM node
   ui/        React HUD: start screen, resource bar, build menu, action bar, toasts

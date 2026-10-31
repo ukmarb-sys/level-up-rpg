@@ -117,8 +117,10 @@ src/assets/art/
     sawmill/    sawmill_r0.png  sawmill_r1.png  sawmill_r2.png  sawmill_r3.png
     mageTower/  mageTower_r0.png mageTower_r1.png mageTower_r2.png mageTower_r3.png
   terrain/      grass_0.png  grass_1.png  grass_2.png  grass_3.png
-  props/        tree_pine.png  tree_oak.png  tree_enchanted.png
-                rock_mossy.png  ruin_pillar.png  crystal_cluster.png
+  props/        tree_pine.png  tree_spruce.png  tree_fir.png  tree_oak.png
+                tree_enchanted.png  tree_mystic.png  bush_fern.png  glow_shroom.png
+                glow_bloom.png  rock_mossy.png  rock_small.png  ruin_pillar.png
+                standing_stone.png  crystal_cluster.png
 ```
 
 ## 6. Exact files, dimensions and footprints
@@ -162,10 +164,18 @@ footprint diamond meets the ground.
 | File (`src/assets/art/…`) | Required | Footprint (w×d) | Canvas (px) | Anchor | Left corner | Right corner | Front corner |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `props/tree_pine.png` | no | 1×1 | 320 × 512 | (160, 416) | (32, 416) | (288, 416) | (160, 480) |
+| `props/tree_spruce.png` | no | 1×1 | 320 × 576 | (160, 480) | (32, 480) | (288, 480) | (160, 544) |
+| `props/tree_fir.png` | no | 1×1 | 320 × 480 | (160, 384) | (32, 384) | (288, 384) | (160, 448) |
 | `props/tree_oak.png` | no | 1×1 | 320 × 448 | (160, 352) | (32, 352) | (288, 352) | (160, 416) |
 | `props/tree_enchanted.png` | no | 1×1 | 320 × 480 | (160, 384) | (32, 384) | (288, 384) | (160, 448) |
+| `props/tree_mystic.png` | no | 1×1 | 320 × 512 | (160, 416) | (32, 416) | (288, 416) | (160, 480) |
+| `props/bush_fern.png` | no | 1×1 | 320 × 224 | (160, 128) | (32, 128) | (288, 128) | (160, 192) |
+| `props/glow_shroom.png` | no | 1×1 | 320 × 224 | (160, 128) | (32, 128) | (288, 128) | (160, 192) |
+| `props/glow_bloom.png` | no | 1×1 | 320 × 256 | (160, 160) | (32, 160) | (288, 160) | (160, 224) |
 | `props/rock_mossy.png` | no | 1×1 | 320 × 256 | (160, 160) | (32, 160) | (288, 160) | (160, 224) |
+| `props/rock_small.png` | no | 1×1 | 320 × 192 | (160, 96) | (32, 96) | (288, 96) | (160, 160) |
 | `props/ruin_pillar.png` | no | 1×1 | 320 × 448 | (160, 352) | (32, 352) | (288, 352) | (160, 416) |
+| `props/standing_stone.png` | no | 1×1 | 320 × 448 | (160, 352) | (32, 352) | (288, 352) | (160, 416) |
 | `props/crystal_cluster.png` | no | 1×1 | 320 × 288 | (160, 192) | (32, 192) | (288, 192) | (160, 256) |
 
 ### Reference top and effect points (source px)
@@ -203,7 +213,7 @@ records the real positions in `art-meta.json`.
 
 **Priority 1 (required set):** `cottage_r0`, `farm_r0`, `sawmill_r0`, `mageTower_r0` and
 `terrain/grass_0`.
-**Priority 2:** `grass_1`–`grass_3` and the six props.
+**Priority 2:** `grass_1`–`grass_3` and the 14 scenery props. Every prop already has a procedural painted version (see `docs/ENVIRONMENT.md`); a painted file replaces it automatically.
 **Priority 3:** r1–r3 for each building (removes mirroring).
 
 ## 7. Top and effect points
