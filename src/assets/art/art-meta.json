@@ -1,4 +1,56 @@
 {
+  "buildings/alchemist/alchemist_r0": {
+    "top": {
+      "x": 378,
+      "y": 162
+    },
+    "effects": {
+      "windows": [
+        {
+          "x": 262,
+          "y": 296
+        },
+        {
+          "x": 366,
+          "y": 428
+        },
+        {
+          "x": 305,
+          "y": 500
+        },
+        {
+          "x": 221,
+          "y": 389
+        }
+      ],
+      "chimney": null,
+      "sparkles": [
+        {
+          "x": 305,
+          "y": 418
+        },
+        {
+          "x": 247,
+          "y": 466
+        },
+        {
+          "x": 397,
+          "y": 346
+        },
+        {
+          "x": 150,
+          "y": 428
+        }
+      ]
+    },
+    "import": {
+      "source": "alchemist.png",
+      "fill": 0.96,
+      "offsetY": 0,
+      "mirrored": false,
+      "scale": 0.381
+    }
+  },
   "buildings/blacksmith/blacksmith_r0": {
     "top": {
       "x": 151,

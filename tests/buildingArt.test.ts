@@ -80,12 +80,36 @@ const CASES = [
       },
     },
   },
+  {
+    // Square 2x2 footprint, entrance (open shop porch) already on the front-left face: no mirror.
+    // The painting has its own chimney smoke, so the game's smoke stays off (chimney: null).
+    type: 'alchemist' as BuildingType,
+    raw: 'alchemist.png',
+    file: 'buildings/alchemist/alchemist_r0',
+    opts: {
+      effects: {
+        chimney: null,
+        windows: [
+          { x: 262, y: 296 },
+          { x: 366, y: 428 },
+          { x: 305, y: 500 },
+          { x: 221, y: 389 },
+        ],
+        sparkles: [
+          { x: 305, y: 418 },
+          { x: 247, y: 466 },
+          { x: 397, y: 346 },
+          { x: 150, y: 428 },
+        ],
+      },
+    },
+  },
 ];
 
 const entryOf = (type: BuildingType) => applyMeta(manifestByKey.get(`bld-${type}-r0`)!, meta);
 const master = (file: string) => decodeImage(readFileSync(join(art, `${file}.png`)));
 
-describe('painted farm, sawmill and mage tower', () => {
+describe('painted farm, sawmill, mage tower, blacksmith and alchemist', () => {
   it('keeps gameplay footprints and costs exactly as before', () => {
     expect([BUILDINGS.farm.width, BUILDINGS.farm.depth]).toEqual([2, 3]);
     expect([BUILDINGS.sawmill.width, BUILDINGS.sawmill.depth]).toEqual([2, 1]);
@@ -97,6 +121,12 @@ describe('painted farm, sawmill and mage tower', () => {
     expect(BUILDINGS.blacksmith.cost).toEqual({ wood: 60, stone: 20, magic: 0 });
     expect(BUILDINGS.blacksmith.produces).toEqual({ stone: 3 });
     expect(BUILDINGS.blacksmith.requires).toEqual(['sawmill']);
+    expect([BUILDINGS.alchemist.width, BUILDINGS.alchemist.depth]).toEqual([2, 2]);
+    expect(BUILDINGS.alchemist.cost).toEqual({ wood: 60, stone: 50, magic: 40 });
+    expect(BUILDINGS.alchemist.produces).toEqual({ magic: 4 });
+    expect(BUILDINGS.alchemist.requires).toEqual(['mageTower']);
+    expect(BUILDINGS.alchemist.tier).toBe(3);
+    expect(BUILDINGS.alchemist.limit).toBeUndefined();
     for (const c of CASES) {
       const g = entryOf(c.type).geometry;
       // no visual overhang declared: the art is fitted to the logical footprint
@@ -117,6 +147,7 @@ describe('painted farm, sawmill and mage tower', () => {
     expect(entryOf('sawmill').geometry.canvas).toEqual({ width: 448, height: 448 });
     expect(entryOf('mageTower').geometry.canvas).toEqual({ width: 576, height: 1024 });
     expect(entryOf('blacksmith').geometry.canvas).toEqual({ width: 448, height: 448 });
+    expect(entryOf('alchemist').geometry.canvas).toEqual({ width: 576, height: 640 });
   });
 
   it('is reproducible from the raw sources with the documented settings', () => {
@@ -196,6 +227,35 @@ describe('painted farm, sawmill and mage tower', () => {
       const [R, G, B] = [r.data[i], r.data[i + 1], r.data[i + 2]];
       expect(R > 200 && G > 100 && (B < 160 || R + G + B > 720), `${w.x},${w.y}`).toBe(true);
     }
+  });
+
+  it('lights the alchemist windows, sparkles its potions and leaves the painted smoke alone', () => {
+    const f = 'buildings/alchemist/alchemist_r0';
+    const r = master(f);
+    const e = entryOf('alchemist').effects!;
+    expect(meta[f].import).toMatchObject({ mirrored: false });
+    // the painting has its own smoke plume: no second, animated one
+    expect(meta[f].effects!.chimney).toBeNull();
+    expect(e.chimney).toBeNull();
+    expect(e.windows).toHaveLength(4);
+    for (const w of e.windows!) {
+      const i = (w.y * r.width + w.x) * 4;
+      // warm lit window, lantern or kiln: red and green high, blue low (or white-hot)
+      const [R, G, B] = [r.data[i], r.data[i + 1], r.data[i + 2]];
+      expect(R > 200 && G > 100 && (B < 160 || R + G + B > 720), `${w.x},${w.y}`).toBe(true);
+    }
+    expect(e.sparkles).toHaveLength(4);
+    for (const p of e.sparkles!) {
+      const i = (p.y * r.width + p.x) * 4;
+      // on the glowing green glass: opaque, green the strongest channel
+      expect(r.data[i + 3], `sparkle ${p.x},${p.y}`).toBe(255);
+      expect(r.data[i + 1] > r.data[i] && r.data[i + 1] > r.data[i + 2] && r.data[i + 1] > 170, `sparkle ${p.x},${p.y}`).toBe(true);
+    }
+    // the base's front corner sits on the footprint's front corner
+    const k = diamondCorners(entryOf('alchemist').geometry);
+    let low = 0;
+    for (let y = 0; y < r.height; y++) for (let x = 0; x < r.width; x++) if (A(r)(x, y) > 128) low = y;
+    expect(Math.abs(low - k.bottom.y)).toBeLessThanOrEqual(2);
   });
 
   it('uses the painted r0 for every rotation until directional art exists (mirrored where needed)', () => {

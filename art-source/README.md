@@ -12,6 +12,7 @@ folder is bundled into the game. The game only loads the processed files in `src
 | `raw/buildings/farm.png` (854×788) | `src/assets/art/buildings/farm/farm_r0.{png,webp}` | From `levelup_buildings_pack.zip`. Farmhouse, wheat field, vegetable rows, fence and coop on one grass base, fitted to the **2×3** footprint (the logical footprint is authoritative; nothing was resized in gameplay). Canvas grown to 704×544 for the smoke. |
 | `raw/buildings/sawmill.png` (789×779) | `src/assets/art/buildings/sawmill/sawmill_r0.{png,webp}` | Fitted to the **2×1** footprint. A sliver of the neighbouring image on the left was removed. The sawdust effect is anchored where the blade meets the timber. |
 | `raw/buildings/mage_tower.png` (707×788) | `src/assets/art/buildings/mageTower/mageTower_r0.{png,webp}` | Fitted to the **2×2** footprint. Imported with `--keep-islands` so the halo's sparkles survive. The crystal is detected as the orb; window glows are set by hand (auto-detection also picked the gold emblem on the banner). |
+| `raw/buildings/alchemist.png` (1312×1199) | `src/assets/art/buildings/alchemist/alchemist_r0.{png,webp}` | Alchemist's Workshop, fitted to the **2×2** footprint (scale 0.381, no mirroring: the open shop porch already faces front-left). Generator alpha (body at 250–253, background haze) cleaned on import. The painting includes its own chimney smoke, so the game's smoke is **off** (`chimney=none`). Warm glows on the dormer, arched window, kiln mouth and porch lantern (the green banner emblem and the green still are excluded); **emerald sparkles** on the still and three potion flasks. |
 | `raw/buildings/blacksmith.png` (1254×1254) | `src/assets/art/buildings/blacksmith/blacksmith_r0.{png,webp}` | Blacksmith, fitted to the **2×1** footprint. It was painted for the 1×2 orientation (long forge front facing front-right), so the importer **mirrors** it to put the forge front on the footprint's long edge; r1/r3 (mirrored r0) therefore show it exactly as painted. Forge fire, coal bed, both lanterns and the gable window glow; smoke rises from the chimney. |
 
 Reproduce the committed sprites exactly. `tests/realArt.test.ts` checks this pixel for pixel.
@@ -50,6 +51,9 @@ npm run art:import -- art-source/raw/buildings/mage_tower.png --as mageTower_r0 
 npm run art:import -- art-source/raw/buildings/blacksmith.png --as blacksmith_r0 --effect-src chimney=858,195 \
   --effect-src window=777,790 --effect-src window=745,838 --effect-src window=828,649 \
   --effect-src window=487,755 --effect-src window=369,547
+npm run art:import -- art-source/raw/buildings/alchemist.png --as alchemist_r0 --effect chimney=none \
+  --effect window=262,296 --effect window=366,428 --effect window=305,500 --effect window=221,389 \
+  --effect sparkle=305,418 --effect sparkle=247,466 --effect sparkle=397,346 --effect sparkle=150,428
 npm run art:webp
 ```
 
