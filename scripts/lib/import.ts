@@ -78,6 +78,12 @@ export interface ObjectImportOptions {
   effectsSource?: Partial<Record<'chimney' | 'orb' | 'wheel', Pt>> & { windows?: Pt[]; sparkles?: Pt[]; butterflies?: Pt[] };
   /** Skip removal of small detached specks (default false). */
   keepIslands?: boolean;
+  /**
+   * OUTPUT-pixel rectangles cleared to full transparency after scaling and alignment, before the
+   * top and effect points are measured: e.g. smoke the generator painted above a chimney (the game
+   * animates its own). Every other pixel stays exactly as imported. x1/y1 are exclusive.
+   */
+  erase?: { x0: number; y0: number; x1: number; y1: number }[];
   /** Manual effect points in output px; null disables the effect. */
   effects?: Partial<Record<'chimney' | 'orb' | 'wheel', Pt | null>> & { windows?: Pt[]; sparkles?: Pt[]; butterflies?: Pt[] };
 }
@@ -280,6 +286,7 @@ export function importObject(source: Raster, baseEntry: AssetEntry, opts: Object
     notes.push('Ground layer aligned with the same crop, scale and offset');
   }
 
+  if (opts.erase?.length) notes.push(`Erased ${eraseRects(out, opts.erase)} painted px in ${opts.erase.length} rectangle(s) (--erase)`);
   const measured = measureObject(out, entry);
   const effects: EffectPoints = {};
   const manual: string[] = [];
@@ -625,6 +632,7 @@ export function importRegistered(source: Raster, baseEntry: AssetEntry, opts: Ob
     const x = opts.mirror === true ? W0 - 1 - p.x : p.x;
     return { x: Math.round(ox + (x - b.minX) * s), y: Math.round(oy + (p.y - b.minY) * s) };
   };
+  if (opts.erase?.length) notes.push(`Erased ${eraseRects(out, opts.erase)} painted px in ${opts.erase.length} rectangle(s) (--erase)`);
   const measured = measureObject(out, entry);
   const effects: EffectPoints = {};
   const manual: string[] = [];
@@ -667,4 +675,23 @@ export function importRegistered(source: Raster, baseEntry: AssetEntry, opts: Ob
     },
   };
   return { raster: out, ground: groundOut, meta, notes, warnings, manual };
+}
+
+/** Clears the given rectangles (x1/y1 exclusive) in place; returns how many painted px were cleared. */
+export function eraseRects(r: Raster, rects: { x0: number; y0: number; x1: number; y1: number }[]): number {
+  let cleared = 0;
+  for (const q of rects) {
+    const x0 = Math.max(0, Math.min(q.x0, q.x1));
+    const x1 = Math.min(r.width, Math.max(q.x0, q.x1));
+    const y0 = Math.max(0, Math.min(q.y0, q.y1));
+    const y1 = Math.min(r.height, Math.max(q.y0, q.y1));
+    for (let y = y0; y < y1; y++) {
+      for (let x = x0; x < x1; x++) {
+        const i = (y * r.width + x) * 4;
+        if (r.data[i + 3] > 0) cleared++;
+        r.data[i] = r.data[i + 1] = r.data[i + 2] = r.data[i + 3] = 0;
+      }
+    }
+  }
+  return cleared;
 }

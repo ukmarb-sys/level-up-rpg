@@ -21,6 +21,9 @@ const art = join(root, 'src/assets/art');
 const meta = JSON.parse(readFileSync(join(art, 'art-meta.json'), 'utf8')) as ArtMeta;
 const A = (r: Raster) => (x: number, y: number) => r.data[(y * r.width + x) * 4 + 3];
 
+/** Output-pixel rectangle that held the Tavern's painted (static) smoke plume. */
+const TAVERN_SMOKE = { x0: 170, y0: 100, x1: 300, y1: 187 };
+
 const CASES = [
   {
     type: 'farm' as BuildingType,
@@ -107,14 +110,16 @@ const CASES = [
   {
     // Square 2x2 footprint. The door and patio face front-right, but the painting is lit from
     // the top-left like the rest of the village, so it is NOT mirrored (mirroring would flip the
-    // light); r1/r3 (mirrored r0) show the door front-left. The smoke plume is painted.
+    // light); r1/r3 (mirrored r0) show the door front-left. The generator painted a static smoke
+    // plume above the chimney: it is erased (output px) and the game animates smoke at the mouth.
     type: 'tavern' as BuildingType,
     raw: 'tavern.png',
     file: 'buildings/tavern/tavern_r0',
     opts: {
       mirror: false,
+      erase: [TAVERN_SMOKE],
       effects: {
-        chimney: null,
+        chimney: { x: 222, y: 191 },
         windows: [
           { x: 271, y: 313 },
           { x: 370, y: 301 },
@@ -288,14 +293,50 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
     expect(Math.abs(low - k.bottom.y)).toBeLessThanOrEqual(2);
   });
 
-  it('lights the tavern windows and lanterns and leaves its painted smoke alone', () => {
+  it('animates the tavern chimney smoke from the chimney mouth, with no painted plume left', () => {
+    const f = 'buildings/tavern/tavern_r0';
+    const r = master(f);
+    const c = entryOf('tavern').effects!.chimney!;
+    // the smoke is switched on, on the chimney cap, near the top of the art (like cottage/farm)
+    expect(c).toEqual({ x: 222, y: 191 });
+    expect(meta[f].effects!.chimney).toEqual(c);
+    expect(A(r)(c.x, c.y)).toBe(255); // the dark mouth inside the cap
+    expect(A(r)(c.x, c.y + 4)).toBe(255); // the cap stones just below
+    expect(A(r)(c.x, c.y - 6)).toBe(0); // open sky right above the mouth: smoke rises freely
+    // no painted plume: nothing left in the smoke area, so the animated smoke is never doubled
+    for (let y = TAVERN_SMOKE.y0; y < TAVERN_SMOKE.y1; y++) {
+      for (let x = TAVERN_SMOKE.x0; x < TAVERN_SMOKE.x1; x++) expect(A(r)(x, y), `${x},${y}`).toBe(0);
+    }
+    // the selection marker now sits on the roof, not on top of a smoke plume
+    expect(meta[f].top!.y).toBeGreaterThan(c.y - 40);
+  });
+
+  it('erases only the painted smoke: every tavern building pixel is exactly as imported before', () => {
+    const raw = decodeImage(readFileSync(join(root, 'art-source/raw/buildings/tavern.png')));
+    const tavern = CASES.find((c) => c.type === 'tavern')!;
+    const plain = importObject(raw, manifestByKey.get('bld-tavern-r0')!, { ...tavern.opts, erase: undefined }).raster;
+    const r = master('buildings/tavern/tavern_r0');
+    let changed = 0;
+    for (let y = 0; y < r.height; y++) {
+      for (let x = 0; x < r.width; x++) {
+        const i = (y * r.width + x) * 4;
+        const inSmoke = x >= TAVERN_SMOKE.x0 && x < TAVERN_SMOKE.x1 && y >= TAVERN_SMOKE.y0 && y < TAVERN_SMOKE.y1;
+        if (inSmoke) {
+          if (plain.data[i + 3] > 0) changed++;
+          continue;
+        }
+        for (let k = 0; k < 4; k++) if (r.data[i + k] !== plain.data[i + k]) throw new Error(`pixel ${x},${y} changed outside the smoke area`);
+      }
+    }
+    expect(changed).toBeGreaterThan(2000); // the plume really was there and is gone
+  });
+
+  it('lights the tavern windows and lanterns', () => {
     const f = 'buildings/tavern/tavern_r0';
     const r = master(f);
     const e = entryOf('tavern').effects!;
     // kept as painted: lit from the top-left like the cottage
     expect(meta[f].import).toMatchObject({ mirrored: false });
-    expect(meta[f].effects!.chimney).toBeNull();
-    expect(e.chimney).toBeNull();
     expect(e.windows).toHaveLength(6);
     for (const w of e.windows!) {
       const i = (w.y * r.width + w.x) * 4;

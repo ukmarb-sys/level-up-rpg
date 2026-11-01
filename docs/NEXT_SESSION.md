@@ -4,7 +4,7 @@
 
 1. Read [CLAUDE.md](../CLAUDE.md) (rules, commands, layout), then
    [PROJECT_STATUS.md](PROJECT_STATUS.md) and [VISUAL_ROADMAP.md](VISUAL_ROADMAP.md).
-2. Check what has been merged since: the **Alchemist's Workshop + Tavern** PR #12 (branch
+2. Check what has been merged since: the **Tavern smoke fix** PR (branch
    `claude/level-up-rpg-review-sk02af`) was open and unmerged at the end of the last session.
    ```bash
    git fetch origin && git log --oneline -5 origin/main
@@ -38,8 +38,9 @@
    `docs/PROJECT_STATUS.md`. Commit, push, open a PR with screenshots, and report any visual
    limitations.
 
-**The painting already has smoke:** import with `--effect chimney=none` so the game doesn't add
-a second plume. **Magic in another colour:** add the building to `SPARKLE_PALETTES` in
+**The painting already has smoke:** painted smoke can't animate, so it looks frozen. Erase it
+with `--erase X0,Y0,X1,Y1` (output px) and put `--effect chimney=X,Y` on the chimney mouth (see
+the Tavern in `art-source/README.md`). Tune the smoke per building in `SMOKE_STYLES`. **Magic in another colour:** add the building to `SPARKLE_PALETTES` in
 `src/game/effectPalette.ts` (violet is the default).
 
 **Painted-only buildings** (`needsArt: true` in `src/core/buildings.ts`) appear in the build
@@ -48,7 +49,7 @@ them.
 
 ## 3. Open questions for the owner
 
-- Merge PR #12 (Alchemist's Workshop + Tavern)?
+- Merge the Tavern smoke fix PR? Apply the same fix to the Alchemist (static painted smoke) and the farm (painted plume plus animated puffs)?
 - **Owner's priorities (2026-11-01):** finish beautiful, consistent **front-facing (r0)** art for
   all ten first-island buildings first. The Tavern and Alchemist are done; next are the
   **Marketplace**, **Ancient Temple** and **Castle Keep**. r1–r3 rotations come later.

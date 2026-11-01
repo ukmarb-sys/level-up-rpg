@@ -28,6 +28,7 @@
  *   --ground-rect U0,V0,U1,V1   with --base: tiles (local frame) an independent --ground image covers
  *   --ground-scale match|fit    ground image at the building's painted scale (default) or fitted to the rect
  *   --effect-src NAME=X,Y       effect point in INPUT image pixels (chimney, orb, wheel, window, sparkle, butterfly)
+ *   --erase X0,Y0,X1,Y1 clear an OUTPUT-pixel rectangle after aligning (e.g. painted smoke above a chimney); repeatable
  *   --keep-islands      keep small detached pieces (sparks, motes) instead of removing them as specks
  *   --dry-run           report only; write nothing
  * Writes: src/assets/art/<path>.png, src/assets/art/art-meta.json, art-previews/<name>.preview.png
@@ -81,6 +82,7 @@ function parseArgs(argv: string[]) {
     groundRect: undefined as string | undefined,
     groundScale: 'match' as 'match' | 'fit',
     effectsSource: {} as Record<string, Pt> & { windows?: Pt[]; sparkles?: Pt[]; butterflies?: Pt[] },
+    erase: undefined as { x0: number; y0: number; x1: number; y1: number }[] | undefined,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -105,6 +107,11 @@ function parseArgs(argv: string[]) {
       opts.base = { left: n[0], right: n[1], front: n[2] };
     } else if (a === '--base-fill') opts.baseFill = Number(next());
     else if (a === '--ground-rect') opts.groundRect = next();
+    else if (a === '--erase') {
+      const n = next().split(',').map(Number);
+      if (n.length !== 4 || n.some((v) => !Number.isInteger(v) || v < 0)) fail('Use --erase X0,Y0,X1,Y1 (output sprite pixels)');
+      opts.erase = [...(opts.erase ?? []), { x0: n[0], y0: n[1], x1: n[2], y1: n[3] }];
+    }
     else if (a === '--ground-scale') opts.groundScale = next() as 'match' | 'fit';
     else if (a === '--effect-src' || a === '--effect') {
       const src = a === '--effect-src';
@@ -222,6 +229,7 @@ function main() {
         key: opts.key,
         keepIslands: opts.keepIslands,
         effects: opts.effects,
+        erase: opts.erase,
       });
       if (result.meta) result.meta.import = { source: basename(opts.input), ...result.meta.import };
     }

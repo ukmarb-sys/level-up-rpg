@@ -1,6 +1,6 @@
 # Project status
 
-_Last updated: 2026-11-01, Alchemist's Workshop and Tavern session._
+_Last updated: 2026-11-01, Tavern smoke fix._
 
 ## Shipped to `main` (merged)
 
@@ -22,7 +22,9 @@ before claiming what is live.
 
 | Branch | What |
 | --- | --- |
-| `claude/level-up-rpg-review-sk02af` (PR #12) | Painted **Tavern** (`tavern_r0`, 2×2, painted smoke, 6 window and lantern glows, kept unmirrored for the top-left light) and painted **Alchemist's Workshop** (`alchemist_r0`, 2×2, emerald sparkles on the still and flasks, 4 window glows, painted smoke so no animated smoke) and **per-building sparkle colours** (`src/game/effectPalette.ts`) |
+| `claude/level-up-rpg-review-sk02af` | **Tavern smoke fix**: the static painted plume is erased from `tavern_r0` (building pixels unchanged) and animated smoke rises from the chimney mouth, with a per-building smoke style (`SMOKE_STYLES`) |
+
+PR #12 (painted Tavern and Alchemist's Workshop, per-building sparkle colours) is merged.
 
 **Still missing for the first island:** the Marketplace, Ancient Temple and Castle Keep
 paintings. They stay hidden until their `_r0` arrives.
@@ -38,9 +40,9 @@ paintings. They stay hidden until their `_r0` arrives.
   | Sawmill | painted | 2×1 | starter |
   | Mage Tower | painted | 2×2 | starter |
   | Blacksmith | painted | 2×1 | tier 2, +3 stone/min, needs a Sawmill |
-  | Tavern | painted (open PR) | 2×2 | tier 2, +10% all production, needs a Cottage and a Farm, one per realm |
+  | Tavern | painted | 2×2 | tier 2, +10% all production, needs a Cottage and a Farm, one per realm |
   | Marketplace | no art yet (hidden) | 3×2 | tier 3, +2 wood and +2 stone/min, needs a Tavern |
-  | Alchemist's Workshop | painted (open PR) | 2×2 | tier 3, +4 magic/min, needs a Mage Tower |
+  | Alchemist's Workshop | painted | 2×2 | tier 3, +4 magic/min, needs a Mage Tower |
   | Ancient Temple | no art yet (hidden) | 3×3 | tier 4, +25% magic, needs the Alchemist, one per realm |
   | Castle Keep | no art yet (hidden) | 4×4 | tier 5, +15% all production, needs the Marketplace, Temple and Blacksmith, one per realm |
 
@@ -49,7 +51,7 @@ paintings. They stay hidden until their `_r0` arrives.
   on load.
 - **Environment:** painted trees, procedural grass and props, fireflies, spores, glows,
   butterflies, crystal sparkles and drifting cloud shadows.
-- **Quality:** 200 tests (195 on `main` before the Alchemist and Tavern). The validator has no errors; its
+- **Quality:** 204 tests. The validator has no errors; its
   warnings are four trees with straight sprite-sheet cut edges and the missing optional grass
   tiles. Performance on the Pixel 7 profile is about 24–26 draw calls per frame for the usual
   starter village; a six-building village (mage tower, alchemist, blacksmith, cottage, farm,
@@ -66,8 +68,9 @@ paintings. They stay hidden until their `_r0` arrives.
 - Oak, enchanted, fir and spruce trees have truncated right edges from sprite-sheet slicing.
 - Grass, ground details, rocks, ruins, the cliff, paths, villagers and decorations are still
   procedural or missing. They need painted art (see `docs/ART_BRIEFS.md`).
-- The Alchemist's and Tavern's selection markers sit just above their painted smoke plumes (the
-  plume is part of the sprite).
+- The **Alchemist** still has a static painted smoke plume (`chimney: null`), so its smoke looks
+  frozen like the Tavern's did. The **farm** has a painted plume *and* the animated puffs on top.
+  Both can be fixed the same way as the Tavern (`--erase` + a chimney point) if wanted.
 - The Tavern's door faces front-right at r0 (kept as painted for the top-left light), and its
   base is a little flatter than 2:1.
 - The `src/modules/` gameplay modules (quests, AI coaching, rewards) are scaffolding only

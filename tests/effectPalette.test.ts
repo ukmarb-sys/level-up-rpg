@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BUILDING_ORDER } from '../src/core/buildings';
-import { DEFAULT_SPARKLE_PALETTE, SPARKLE_PALETTES, sparklePalette } from '../src/game/effectPalette';
+import { DEFAULT_SMOKE_STYLE, DEFAULT_SPARKLE_PALETTE, SMOKE_STYLES, SPARKLE_PALETTES, smokeStyle, sparklePalette } from '../src/game/effectPalette';
 
 const rgb = (c: number) => [(c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff];
 
@@ -26,5 +26,35 @@ describe('per-building sparkle colours', () => {
       expect(p!.motes.length).toBeGreaterThan(0);
       for (const c of [p!.glow, ...p!.motes]) expect(Number.isInteger(c) && c >= 0 && c <= 0xffffff).toBe(true);
     }
+  });
+});
+
+describe('per-building chimney smoke', () => {
+  it('keeps the original smoke for every building without its own style (cottage, farm, ...)', () => {
+    expect(DEFAULT_SMOKE_STYLE).toEqual({
+      tint: 0xcfc6d6,
+      interval: 650,
+      alpha: 0.5,
+      scaleFrom: 0.35,
+      scaleTo: 0.9,
+      rise: 26,
+      riseJitter: 10,
+      drift: 6,
+      driftJitter: 8,
+      duration: 2200,
+    });
+    for (const t of BUILDING_ORDER) if (!SMOKE_STYLES[t]) expect(smokeStyle(t)).toBe(DEFAULT_SMOKE_STYLE);
+    expect(Object.keys(SMOKE_STYLES)).toEqual(['tavern']);
+  });
+
+  it('gives the tavern a soft but readable, continuous column', () => {
+    const s = smokeStyle('tavern');
+    expect(s.alpha).toBeGreaterThan(DEFAULT_SMOKE_STYLE.alpha);
+    expect(s.alpha).toBeLessThanOrEqual(0.8); // still subtle
+    expect(s.interval).toBeLessThan(DEFAULT_SMOKE_STYLE.interval);
+    // puffs overlap: several are alive at once, so the column never disappears
+    expect(s.duration / s.interval).toBeGreaterThanOrEqual(5);
+    const [r, g, b] = rgb(s.tint);
+    expect(Math.max(r, g, b) - Math.min(r, g, b)).toBeLessThan(24); // neutral grey, not tinted
   });
 });

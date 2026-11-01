@@ -345,6 +345,7 @@ Options:
 | `--mirror` / `--no-mirror` | Force or forbid mirroring (default: auto-detect) |
 | `--key auto/on/off` | Background removal (default auto) |
 | `--keep-islands` | Don't despeckle |
+| `--erase X0,Y0,X1,Y1` | Clear an output-pixel rectangle after aligning, before the top and effect points are measured (e.g. a static smoke plume painted above a chimney). Every other pixel is unchanged. Repeatable. |
 | `--visual WxD` / `--visual U0,V0,U1,V1` | The art paints more than its logical footprint (§11) |
 | `--ground FILE` | Ground-layer image (same pixel size as the input) for gardens, paths and shadows (§11) |
 | `--height PX` / `--no-auto-height` | Set the canvas height / shrink tall art instead of growing the canvas |

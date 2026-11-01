@@ -14,7 +14,7 @@ are in [`art-source/README.md`](../art-source/README.md).
 | Sawmill | **2×1** | 448 × 448 | chimney smoke, 4 window/lantern glows, sawdust at the blade |
 | Mage tower | **2×2** | 576 × 1024 | soft halo and runes on the crystal, 5 window/lantern glows, sparkles on the ground crystals, door rune and spell book |
 | Blacksmith | **2×1** | 448 × 448 | chimney smoke; forge fire, coal bed, two lanterns and the gable window glow |
-| Tavern | **2×2** | 576 × 640 | both dormers, the big latticed window, the hanging lantern and two table lanterns glow; the chimney smoke is **painted** (no animated smoke) |
+| Tavern | **2×2** | 576 × 640 | both dormers, the big latticed window, the hanging lantern and two table lanterns glow; **animated chimney smoke** from the chimney mouth (the static painted plume was removed) |
 | Alchemist's Workshop | **2×2** | 576 × 640 | **emerald sparkles** on the copper still and three potion flasks; the dormer, arched window, kiln mouth and porch lantern glow; the chimney smoke is **painted** (no animated smoke) |
 
 ![The blacksmith on the island](screenshots/blacksmith-close.jpg)
@@ -22,6 +22,8 @@ are in [`art-source/README.md`](../art-source/README.md).
 ![The Alchemist's Workshop on the island](screenshots/alchemist-close.jpg)
 
 ![The Tavern on the island](screenshots/tavern-close.jpg)
+
+![The Tavern's animated chimney smoke](screenshots/tavern-smoke.gif)
 
 Gameplay is untouched: footprints, costs, production, collision, placement rules and saves
 (format v1) are all as before. `tests/buildingArt.test.ts` pins the footprints and costs.
@@ -67,7 +69,12 @@ procedural building geometry is gone.
   building, and mirroring would flip it. Gameplay doesn't depend on which face the door is on;
   turning the Tavern (r1/r3) shows the door front-left. Its base is painted slightly flatter than
   2:1, so the grass at the side corners sits about 9 world px below the footprint's side corners.
-  Its painted smoke replaces the game's (`chimney: null`), and the selection marker sits above it.
+- **Tavern smoke.** The painting came with a smoke plume baked in. A painted plume can't move, so
+  in game it read as frozen smoke. The importer now erases that plume from the sprite after
+  alignment (`--erase`, output px), leaving every building pixel exactly as before (tested), and
+  the game emits smoke from the chimney mouth (222, 191). The Tavern uses its own, slightly denser
+  smoke style (`SMOKE_STYLES` in `src/game/effectPalette.ts`) so the column stays readable; all
+  other buildings keep the original smoke. The selection marker now sits on the roof.
 - **Similar houses.** The farmhouse and the cottage share a red-roof, stone-and-timber style,
   so they're easy to mix up at a glance. The farm's field and fence tell them apart.
 
