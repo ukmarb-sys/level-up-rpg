@@ -14,6 +14,7 @@ are in [`art-source/README.md`](../art-source/README.md).
 | Sawmill | **2×1** | 448 × 448 | chimney smoke, 4 window/lantern glows, sawdust at the blade |
 | Mage tower | **2×2** | 576 × 1024 | soft halo and runes on the crystal, 5 window/lantern glows, sparkles on the ground crystals, door rune and spell book |
 | Blacksmith | **2×1** | 448 × 448 | chimney smoke; forge fire, coal bed, two lanterns and the gable window glow |
+| Marketplace | **3×2** | 704 × 512 | ten warm lantern and window glows (eight lanterns, two hall windows); the hall's chimney is capped, so no smoke |
 | Tavern | **2×2** | 576 × 640 | both dormers, the big latticed window, the hanging lantern and two table lanterns glow; **animated chimney smoke** from the chimney mouth (the static painted plume was removed) |
 | Alchemist's Workshop | **2×2** | 576 × 640 | **emerald sparkles** on the copper still and three potion flasks; the dormer, arched window, kiln mouth and porch lantern glow; delicate, softly glowing **mint chimney smoke** (the static painted plume was removed) |
 
@@ -22,6 +23,8 @@ are in [`art-source/README.md`](../art-source/README.md).
 ![The Alchemist's Workshop on the island](screenshots/alchemist-close.jpg)
 
 ![The Tavern on the island](screenshots/tavern-close.jpg)
+
+![The Marketplace on the island](screenshots/marketplace-close.jpg)
 
 ![The Tavern's animated chimney smoke](screenshots/tavern-smoke.gif)
 
@@ -84,12 +87,20 @@ procedural building geometry is gone.
   and 4 px up (it was on the cap's front stones).
 
   ![Every chimney in game](screenshots/smoke-audit.gif)
+- **Marketplace cut-out, fit and scale.** It was delivered opaque on a grass field and cut out by
+  `scripts/cutout-marketplace.py` (see `art-source/README.md`). Its plaza is painted squarer
+  and flatter than a true 3×2, so fitted by width the front and right corners land on the
+  footprint and the left corner sits about 15 world px low. It paints a whole market square
+  (hall, five stalls, fountain, tree) on 3×2 tiles, so everything is at about **half the
+  village scale**: the hall's door and windows are roughly half the Tavern's.
+
+  ![The Marketplace next to the Tavern](screenshots/marketplace-village.jpg)
 - **Similar houses.** The farmhouse and the cottage share a red-roof, stone-and-timber style,
   so they're easy to mix up at a glance. The farm's field and fence tell them apart.
 
 ## Missing rotation artwork
 
-Only **r0** exists for the farm, sawmill, mage tower, blacksmith, alchemist and tavern. The other rotations are
+Only **r0** exists for the farm, sawmill, mage tower, blacksmith, alchemist, tavern and marketplace. The other rotations are
 **temporary fallbacks**, reported by `validate:assets`:
 
 | Building | r1 | r2 | r3 |
@@ -100,6 +111,7 @@ Only **r0** exists for the farm, sawmill, mage tower, blacksmith, alchemist and 
 | Blacksmith (2×1 / 1×2) | r0 mirrored (= the painting as delivered) | r0 | r0 mirrored (= as delivered) |
 | Alchemist (2×2) | r0 mirrored | r0 | r0 mirrored |
 | Tavern (2×2) | r0 mirrored (door front-left) | r0 | r0 mirrored (door front-left) |
+| Marketplace (3×2 / 2×3) | r0 mirrored | r0 | r0 mirrored |
 
 Mirroring swaps the footprint's width and depth, which matches the quarter turn, so collision
 lines up. But the lighting flips, and r2 shows the same front as r0 instead of the back. Painted
