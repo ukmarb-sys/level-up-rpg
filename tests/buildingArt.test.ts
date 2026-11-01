@@ -21,8 +21,30 @@ const art = join(root, 'src/assets/art');
 const meta = JSON.parse(readFileSync(join(art, 'art-meta.json'), 'utf8')) as ArtMeta;
 const A = (r: Raster) => (x: number, y: number) => r.data[(y * r.width + x) * 4 + 3];
 
-/** Output-pixel rectangle that held the Tavern's painted (static) smoke plume. */
-const TAVERN_SMOKE = { x0: 170, y0: 100, x1: 300, y1: 187 };
+type Rect = { x0: number; y0: number; x1: number; y1: number };
+
+/**
+ * Paintings that came with a static smoke plume painted above the chimney. On import the plume
+ * is erased (output px), a pale smoke stub left inside the chimney mouth is retouched from the
+ * pixels beside it, and the game animates smoke from the mouth instead.
+ */
+const SMOKE_FIX: Record<'tavern' | 'farm' | 'alchemist', { erase: Rect[]; inpaint: Rect[]; chimney: { x: number; y: number } }> = {
+  tavern: { erase: [{ x0: 170, y0: 100, x1: 300, y1: 187 }], inpaint: [], chimney: { x: 222, y: 191 } },
+  farm: { erase: [{ x0: 470, y0: 20, x1: 552, y1: 118 }], inpaint: [{ x0: 503, y0: 121, x1: 511, y1: 126 }], chimney: { x: 510, y: 122 } },
+  alchemist: {
+    // the plume, then the smoke that covered the cap's back rim trimmed to the rim's peaked outline
+    erase: [
+      { x0: 305, y0: 150, x1: 420, y1: 221 },
+      { x0: 305, y0: 221, x1: 330, y1: 222 },
+      { x0: 340, y0: 221, x1: 420, y1: 222 },
+      { x0: 305, y0: 222, x1: 326, y1: 223 },
+      { x0: 344, y0: 222, x1: 420, y1: 223 },
+    ],
+    inpaint: [{ x0: 328, y0: 223, x1: 337, y1: 227 }],
+    chimney: { x: 332, y: 225 },
+  },
+};
+const inRects = (rects: Rect[], x: number, y: number) => rects.some((q) => x >= q.x0 && x < q.x1 && y >= q.y0 && y < q.y1);
 
 const CASES = [
   {
@@ -30,8 +52,10 @@ const CASES = [
     raw: 'farm.png',
     file: 'buildings/farm/farm_r0',
     opts: {
+      erase: SMOKE_FIX.farm.erase,
+      inpaint: SMOKE_FIX.farm.inpaint,
       effects: {
-        chimney: { x: 510, y: 122 },
+        chimney: SMOKE_FIX.farm.chimney,
         windows: [{ x: 437, y: 219 }, { x: 562, y: 224 }, { x: 404, y: 286 }, { x: 547, y: 299 }, { x: 485, y: 296 }, { x: 356, y: 390 }],
         butterflies: [{ x: 203, y: 367 }, { x: 300, y: 330 }, { x: 585, y: 330 }, { x: 413, y: 460 }],
       },
@@ -85,13 +109,15 @@ const CASES = [
   },
   {
     // Square 2x2 footprint, entrance (open shop porch) already on the front-left face: no mirror.
-    // The painting has its own chimney smoke, so the game's smoke stays off (chimney: null).
+    // The painted (static) smoke is removed and the game animates delicate smoke at the mouth.
     type: 'alchemist' as BuildingType,
     raw: 'alchemist.png',
     file: 'buildings/alchemist/alchemist_r0',
     opts: {
+      erase: SMOKE_FIX.alchemist.erase,
+      inpaint: SMOKE_FIX.alchemist.inpaint,
       effects: {
-        chimney: null,
+        chimney: SMOKE_FIX.alchemist.chimney,
         windows: [
           { x: 262, y: 296 },
           { x: 366, y: 428 },
@@ -117,9 +143,9 @@ const CASES = [
     file: 'buildings/tavern/tavern_r0',
     opts: {
       mirror: false,
-      erase: [TAVERN_SMOKE],
+      erase: SMOKE_FIX.tavern.erase,
       effects: {
-        chimney: { x: 222, y: 191 },
+        chimney: SMOKE_FIX.tavern.chimney,
         windows: [
           { x: 271, y: 313 },
           { x: 370, y: 301 },
@@ -264,14 +290,11 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
     }
   });
 
-  it('lights the alchemist windows, sparkles its potions and leaves the painted smoke alone', () => {
+  it('lights the alchemist windows and sparkles its potions', () => {
     const f = 'buildings/alchemist/alchemist_r0';
     const r = master(f);
     const e = entryOf('alchemist').effects!;
     expect(meta[f].import).toMatchObject({ mirrored: false });
-    // the painting has its own smoke plume: no second, animated one
-    expect(meta[f].effects!.chimney).toBeNull();
-    expect(e.chimney).toBeNull();
     expect(e.windows).toHaveLength(4);
     for (const w of e.windows!) {
       const i = (w.y * r.width + w.x) * 4;
@@ -293,43 +316,50 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
     expect(Math.abs(low - k.bottom.y)).toBeLessThanOrEqual(2);
   });
 
-  it('animates the tavern chimney smoke from the chimney mouth, with no painted plume left', () => {
-    const f = 'buildings/tavern/tavern_r0';
-    const r = master(f);
-    const c = entryOf('tavern').effects!.chimney!;
-    // the smoke is switched on, on the chimney cap, near the top of the art (like cottage/farm)
-    expect(c).toEqual({ x: 222, y: 191 });
-    expect(meta[f].effects!.chimney).toEqual(c);
-    expect(A(r)(c.x, c.y)).toBe(255); // the dark mouth inside the cap
-    expect(A(r)(c.x, c.y + 4)).toBe(255); // the cap stones just below
-    expect(A(r)(c.x, c.y - 6)).toBe(0); // open sky right above the mouth: smoke rises freely
-    // no painted plume: nothing left in the smoke area, so the animated smoke is never doubled
-    for (let y = TAVERN_SMOKE.y0; y < TAVERN_SMOKE.y1; y++) {
-      for (let x = TAVERN_SMOKE.x0; x < TAVERN_SMOKE.x1; x++) expect(A(r)(x, y), `${x},${y}`).toBe(0);
-    }
-    // the selection marker now sits on the roof, not on top of a smoke plume
-    expect(meta[f].top!.y).toBeGreaterThan(c.y - 40);
-  });
+  for (const type of ['tavern', 'farm', 'alchemist'] as const) {
+    const f = `buildings/${type}/${type}_r0`;
+    const fix = SMOKE_FIX[type];
 
-  it('erases only the painted smoke: every tavern building pixel is exactly as imported before', () => {
-    const raw = decodeImage(readFileSync(join(root, 'art-source/raw/buildings/tavern.png')));
-    const tavern = CASES.find((c) => c.type === 'tavern')!;
-    const plain = importObject(raw, manifestByKey.get('bld-tavern-r0')!, { ...tavern.opts, erase: undefined }).raster;
-    const r = master('buildings/tavern/tavern_r0');
-    let changed = 0;
-    for (let y = 0; y < r.height; y++) {
-      for (let x = 0; x < r.width; x++) {
-        const i = (y * r.width + x) * 4;
-        const inSmoke = x >= TAVERN_SMOKE.x0 && x < TAVERN_SMOKE.x1 && y >= TAVERN_SMOKE.y0 && y < TAVERN_SMOKE.y1;
-        if (inSmoke) {
-          if (plain.data[i + 3] > 0) changed++;
-          continue;
+    it(`animates the ${type} chimney smoke from the chimney mouth, with no painted plume left`, () => {
+      const r = master(f);
+      const c = entryOf(type).effects!.chimney!;
+      expect(c).toEqual(fix.chimney);
+      expect(meta[f].effects!.chimney).toEqual(c);
+      expect(A(r)(c.x, c.y)).toBe(255); // inside the chimney mouth
+      expect(A(r)(c.x, c.y + 4)).toBe(255); // the cap stones just below
+      expect(A(r)(c.x, c.y - 8)).toBe(0); // open sky above the mouth: the smoke rises freely
+      // the mouth is dark again (no pale smoke stub left in it)
+      const i = (c.y * r.width + c.x) * 4;
+      expect(0.3 * r.data[i] + 0.59 * r.data[i + 1] + 0.11 * r.data[i + 2], 'mouth luminance').toBeLessThan(110);
+      // no painted plume: nothing left where it was, so the animated smoke is never doubled
+      for (const q of fix.erase) for (let y = q.y0; y < q.y1; y++) for (let x = q.x0; x < q.x1; x++) expect(A(r)(x, y), `${x},${y}`).toBe(0);
+      // the selection marker sits on the roof, not on top of a smoke plume
+      expect(meta[f].top!.y).toBeGreaterThan(c.y - 45);
+    });
+
+    it(`changes only the ${type} smoke pixels: every other pixel is exactly as imported before`, () => {
+      const raw = decodeImage(readFileSync(join(root, `art-source/raw/buildings/${type}.png`)));
+      const opts = CASES.find((k) => k.type === type)!.opts;
+      const plain = importObject(raw, manifestByKey.get(`bld-${type}-r0`)!, { ...opts, erase: undefined, inpaint: undefined }).raster;
+      const r = master(f);
+      let erased = 0;
+      for (let y = 0; y < r.height; y++) {
+        for (let x = 0; x < r.width; x++) {
+          const i = (y * r.width + x) * 4;
+          if (inRects(fix.erase, x, y)) {
+            if (plain.data[i + 3] > 0) erased++;
+            continue;
+          }
+          if (inRects(fix.inpaint, x, y)) continue;
+          for (let k = 0; k < 4; k++) if (r.data[i + k] !== plain.data[i + k]) throw new Error(`${type}: pixel ${x},${y} changed outside the smoke areas`);
         }
-        for (let k = 0; k < 4; k++) if (r.data[i + k] !== plain.data[i + k]) throw new Error(`pixel ${x},${y} changed outside the smoke area`);
       }
-    }
-    expect(changed).toBeGreaterThan(2000); // the plume really was there and is gone
-  });
+      expect(erased).toBeGreaterThan(2000); // the plume really was there and is gone
+      // the retouched mouth area is tiny (a few dozen px)
+      const retouched = fix.inpaint.reduce((n, q) => n + (q.x1 - q.x0) * (q.y1 - q.y0), 0);
+      expect(retouched).toBeLessThanOrEqual(40);
+    });
+  }
 
   it('lights the tavern windows and lanterns', () => {
     const f = 'buildings/tavern/tavern_r0';

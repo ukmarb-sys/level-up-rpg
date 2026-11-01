@@ -40,7 +40,7 @@
 
 **The painting already has smoke:** painted smoke can't animate, so it looks frozen. Erase it
 with `--erase X0,Y0,X1,Y1` (output px) and put `--effect chimney=X,Y` on the chimney mouth (see
-the Tavern in `art-source/README.md`). Tune the smoke per building in `SMOKE_STYLES`. **Magic in another colour:** add the building to `SPARKLE_PALETTES` in
+the Tavern in `art-source/README.md`); retouch a smoke stub left in the mouth with `--inpaint`. Tune the smoke per building in `SMOKE_STYLES`. **Magic in another colour:** add the building to `SPARKLE_PALETTES` in
 `src/game/effectPalette.ts` (violet is the default).
 
 **Painted-only buildings** (`needsArt: true` in `src/core/buildings.ts`) appear in the build
@@ -49,7 +49,7 @@ them.
 
 ## 3. Open questions for the owner
 
-- Merge the Tavern smoke fix PR? Apply the same fix to the Alchemist (static painted smoke) and the farm (painted plume plus animated puffs)?
+- Merge the smoke fix PR #13 (Tavern, Farm and Alchemist)? The **sawmill** still has a painted plume under its animated puffs (double smoke); fix it the same way if wanted.
 - **Owner's priorities (2026-11-01):** finish beautiful, consistent **front-facing (r0)** art for
   all ten first-island buildings first. The Tavern and Alchemist are done; next are the
   **Marketplace**, **Ancient Temple** and **Castle Keep**. r1–r3 rotations come later.

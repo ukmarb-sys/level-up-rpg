@@ -84,6 +84,12 @@ export interface ObjectImportOptions {
    * animates its own). Every other pixel stays exactly as imported. x1/y1 are exclusive.
    */
   erase?: { x0: number; y0: number; x1: number; y1: number }[];
+  /**
+   * OUTPUT-pixel rectangles retouched after `erase`: each row is repainted as a linear blend
+   * between the opaque pixels just left and right of the rectangle (e.g. a chimney mouth whose
+   * painted smoke was erased above it, leaving a pale stub inside). x1/y1 are exclusive.
+   */
+  inpaint?: { x0: number; y0: number; x1: number; y1: number }[];
   /** Manual effect points in output px; null disables the effect. */
   effects?: Partial<Record<'chimney' | 'orb' | 'wheel', Pt | null>> & { windows?: Pt[]; sparkles?: Pt[]; butterflies?: Pt[] };
 }
@@ -287,6 +293,7 @@ export function importObject(source: Raster, baseEntry: AssetEntry, opts: Object
   }
 
   if (opts.erase?.length) notes.push(`Erased ${eraseRects(out, opts.erase)} painted px in ${opts.erase.length} rectangle(s) (--erase)`);
+  if (opts.inpaint?.length) notes.push(`Retouched ${inpaintRows(out, opts.inpaint)} px in ${opts.inpaint.length} rectangle(s) (--inpaint)`);
   const measured = measureObject(out, entry);
   const effects: EffectPoints = {};
   const manual: string[] = [];
@@ -633,6 +640,7 @@ export function importRegistered(source: Raster, baseEntry: AssetEntry, opts: Ob
     return { x: Math.round(ox + (x - b.minX) * s), y: Math.round(oy + (p.y - b.minY) * s) };
   };
   if (opts.erase?.length) notes.push(`Erased ${eraseRects(out, opts.erase)} painted px in ${opts.erase.length} rectangle(s) (--erase)`);
+  if (opts.inpaint?.length) notes.push(`Retouched ${inpaintRows(out, opts.inpaint)} px in ${opts.inpaint.length} rectangle(s) (--inpaint)`);
   const measured = measureObject(out, entry);
   const effects: EffectPoints = {};
   const manual: string[] = [];
@@ -694,4 +702,32 @@ export function eraseRects(r: Raster, rects: { x0: number; y0: number; x1: numbe
     }
   }
   return cleared;
+}
+
+/**
+ * Repaints each row of each rectangle (x1/y1 exclusive) as a linear blend between the pixels at
+ * x0-1 and x1 on that row. Rows whose two anchors are not both opaque are left untouched.
+ * Returns how many pixels were repainted.
+ */
+export function inpaintRows(r: Raster, rects: { x0: number; y0: number; x1: number; y1: number }[]): number {
+  let painted = 0;
+  for (const q of rects) {
+    const x0 = Math.max(1, Math.min(q.x0, q.x1));
+    const x1 = Math.min(r.width - 1, Math.max(q.x0, q.x1));
+    const y0 = Math.max(0, Math.min(q.y0, q.y1));
+    const y1 = Math.min(r.height, Math.max(q.y0, q.y1));
+    for (let y = y0; y < y1; y++) {
+      const L = (y * r.width + (x0 - 1)) * 4;
+      const R = (y * r.width + x1) * 4;
+      if (r.data[L + 3] !== 255 || r.data[R + 3] !== 255) continue;
+      for (let x = x0; x < x1; x++) {
+        const t = (x - (x0 - 1)) / (x1 - (x0 - 1));
+        const i = (y * r.width + x) * 4;
+        for (let k = 0; k < 3; k++) r.data[i + k] = Math.round(r.data[L + k] + (r.data[R + k] - r.data[L + k]) * t);
+        r.data[i + 3] = 255;
+        painted++;
+      }
+    }
+  }
+  return painted;
 }

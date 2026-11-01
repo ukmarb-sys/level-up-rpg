@@ -44,9 +44,11 @@ export interface SmokeStyle {
   drift: number;
   driftJitter: number;
   duration: number;
+  /** Additive blend: the puffs glow softly instead of shading (magical smoke). Default false. */
+  additive?: boolean;
 }
 
-/** The original chimney smoke (cottage, farm, sawmill, blacksmith): unchanged. */
+/** The original chimney smoke (cottage, sawmill, blacksmith): unchanged. */
 export const DEFAULT_SMOKE_STYLE: SmokeStyle = {
   tint: 0xcfc6d6,
   interval: 650,
@@ -60,10 +62,15 @@ export const DEFAULT_SMOKE_STYLE: SmokeStyle = {
   duration: 2200,
 };
 
+// The tavern, farm and alchemist paintings came with static smoke painted in; it was removed from
+// the sprites (`--erase`/`--inpaint` on import) and these animated styles replace it.
 export const SMOKE_STYLES: Partial<Record<BuildingType, SmokeStyle>> = {
-  // Tavern: its painted (static) plume was removed from the sprite; this soft, steady column
-  // replaces it, a little denser and taller than the default so it reads as a working hearth.
+  // Tavern: a soft, steady column, a little denser and taller than the rest: a working hearth.
   tavern: { tint: 0xddd5d2, interval: 380, alpha: 0.72, scaleFrom: 0.28, scaleTo: 1.05, rise: 34, riseJitter: 12, drift: 8, driftJitter: 8, duration: 2600 },
+  // Farm: subtle farmhouse smoke, lighter and sparser than the tavern's.
+  farm: { tint: 0xd8d2d4, interval: 520, alpha: 0.6, scaleFrom: 0.3, scaleTo: 0.95, rise: 30, riseJitter: 10, drift: 7, driftJitter: 8, duration: 2400 },
+  // Alchemist: delicate, faintly glowing mint wisps that rise slowly and thin out (alchemy fumes).
+  alchemist: { tint: 0xa8f0c8, interval: 430, alpha: 0.42, scaleFrom: 0.16, scaleTo: 0.62, rise: 38, riseJitter: 14, drift: 3, driftJitter: 10, duration: 3000, additive: true },
 };
 
 export function smokeStyle(type: BuildingType): SmokeStyle {

@@ -391,6 +391,7 @@ export class CityScene extends Phaser.Scene {
         loop: true,
         callback: () => {
           const s = this.add.image(chimney.x, chimney.y, 'mote').setTint(smoke.tint).setScale(smoke.scaleFrom).setAlpha(smoke.alpha);
+          if (smoke.additive) s.setBlendMode(Phaser.BlendModes.ADD);
           c.add(s);
           this.tweens.add({
             targets: s,

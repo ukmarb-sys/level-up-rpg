@@ -1,8 +1,8 @@
 {
   "buildings/alchemist/alchemist_r0": {
     "top": {
-      "x": 378,
-      "y": 162
+      "x": 267,
+      "y": 190
     },
     "effects": {
       "windows": [
@@ -23,7 +23,10 @@
           "y": 389
         }
       ],
-      "chimney": null,
+      "chimney": {
+        "x": 332,
+        "y": 225
+      },
       "sparkles": [
         {
           "x": 305,
@@ -154,8 +157,8 @@
   "buildings/farm/farm_r0": {
     "height": 544,
     "top": {
-      "x": 526,
-      "y": 35
+      "x": 416,
+      "y": 106
     },
     "effects": {
       "chimney": {

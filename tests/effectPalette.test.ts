@@ -44,7 +44,7 @@ describe('per-building chimney smoke', () => {
       duration: 2200,
     });
     for (const t of BUILDING_ORDER) if (!SMOKE_STYLES[t]) expect(smokeStyle(t)).toBe(DEFAULT_SMOKE_STYLE);
-    expect(Object.keys(SMOKE_STYLES)).toEqual(['tavern']);
+    expect(Object.keys(SMOKE_STYLES).sort()).toEqual(['alchemist', 'farm', 'tavern']);
   });
 
   it('gives the tavern a soft but readable, continuous column', () => {
@@ -56,5 +56,23 @@ describe('per-building chimney smoke', () => {
     expect(s.duration / s.interval).toBeGreaterThanOrEqual(5);
     const [r, g, b] = rgb(s.tint);
     expect(Math.max(r, g, b) - Math.min(r, g, b)).toBeLessThan(24); // neutral grey, not tinted
+  });
+
+  it('makes the farm subtle, the alchemist delicate and mystical, and the tavern the densest', () => {
+    const [tavern, farm, alchemist] = (['tavern', 'farm', 'alchemist'] as const).map(smokeStyle);
+    // density = how opaque the puffs start x how often they come
+    const density = (s: typeof tavern) => s.alpha / s.interval;
+    expect(density(tavern)).toBeGreaterThan(density(farm));
+    expect(density(tavern)).toBeGreaterThan(density(alchemist));
+    expect(farm.alpha).toBeLessThan(tavern.alpha);
+    expect(farm.additive).toBeFalsy();
+    // alchemist: thin wisps (smaller puffs), slow and tall, softly glowing, faintly green
+    expect(alchemist.scaleTo).toBeLessThan(farm.scaleTo);
+    expect(alchemist.duration).toBeGreaterThan(farm.duration);
+    expect(alchemist.additive).toBe(true);
+    const [r, g, b] = rgb(alchemist.tint);
+    expect(g).toBeGreaterThan(r);
+    expect(g).toBeGreaterThan(b);
+    expect(DEFAULT_SMOKE_STYLE.additive).toBeUndefined();
   });
 });
