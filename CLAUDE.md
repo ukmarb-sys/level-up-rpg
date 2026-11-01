@@ -55,7 +55,7 @@ CI (`.github/workflows/ci.yml`) runs tests, asset validation and the build on PR
 | `src/core/` | Pure game rules, no Phaser and no React: buildings (catalog, unlocks, limits, bonuses), grid, game, save, store |
 | `src/assets/` | Artwork contract: `spec.ts` (canvas and anchor maths), `manifest.ts`, `meta.ts` (`art-meta.json`), `resolve.ts` (rotation fallbacks), `art/` (PNG masters + WebP) |
 | `src/game/` | Phaser: `CityScene.ts` (buildings, effects, input, LOD), `environment/` (terrain, forest, ambient, clouds), `art.ts` (procedural fallbacks) |
-| `src/ui/` | React HUD: build menu (art-gated catalog), action bar, resource bar |
+| `src/ui/` | React HUD: building catalog (all ten buildings), action bar, resource bar, settings with Developer Test Mode (`docs/DEVELOPER_TEST_MODE.md`) |
 | `scripts/` | `import-art.ts`, `validate-assets.ts`, `lib/` (PNG codec, raster ops, importer, validator) |
 | `art-source/raw/` | Raw delivered artwork and exact reproduction commands (`art-source/README.md`) |
 | `tests/` | Vitest specs. Art tests re-import the raw sources and compare pixel for pixel |

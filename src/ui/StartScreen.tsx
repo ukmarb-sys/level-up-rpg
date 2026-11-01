@@ -4,12 +4,14 @@ import { BUILD_ID } from '../core/version';
 interface Props {
   hasSave: boolean;
   buildingCount: number;
+  /** The open realm is the Developer Test Mode island, not the village. */
+  testMode?: boolean;
   onContinue: () => void;
   onNew: () => void;
 }
 
 /** Moonlit title screen: layered SVG landscape, floating citadel and drifting embers. */
-export function StartScreen({ hasSave, buildingCount, onContinue, onNew }: Props) {
+export function StartScreen({ hasSave, buildingCount, testMode = false, onContinue, onNew }: Props) {
   const [confirming, setConfirming] = useState(false);
   const embers = useMemo(
     () =>
@@ -83,10 +85,15 @@ export function StartScreen({ hasSave, buildingCount, onContinue, onNew }: Props
           <span />◆<span />
         </div>
 
+        {testMode && (
+          <p className="test-badge test-badge--start" role="status">
+            TEST MODE · test island (your village is kept separately)
+          </p>
+        )}
         <div className="start__actions">
           {hasSave && !confirming && (
             <button className="btn btn--primary" onClick={onContinue}>
-              Continue your realm
+              {testMode ? 'Continue test island' : 'Continue your realm'}
               <small>{buildingCount} {buildingCount === 1 ? 'building' : 'buildings'} standing</small>
             </button>
           )}
@@ -95,12 +102,12 @@ export function StartScreen({ hasSave, buildingCount, onContinue, onNew }: Props
               className={hasSave ? 'btn btn--ghost' : 'btn btn--primary'}
               onClick={() => (hasSave && buildingCount > 0 ? setConfirming(true) : onNew())}
             >
-              Begin a new realm
+              {testMode ? 'New test island' : 'Begin a new realm'}
             </button>
           )}
           {confirming && (
             <div className="start__confirm" role="alertdialog" aria-label="Confirm new realm">
-              <p>Abandon your current realm? This cannot be undone.</p>
+              <p>{testMode ? 'Wipe the test island? Your village is not affected.' : 'Abandon your current realm? This cannot be undone.'}</p>
               <div className="start__confirm-row">
                 <button className="btn btn--ghost" onClick={() => setConfirming(false)}>
                   Keep it

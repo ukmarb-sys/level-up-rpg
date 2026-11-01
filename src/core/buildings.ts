@@ -185,10 +185,19 @@ export type Availability =
   | { ok: false; reason: 'locked'; missing: BuildingType[] }
   | { ok: false; reason: 'limit-reached'; limit: number };
 
+/**
+ * Rule overrides. Only Developer Test Mode sets these (see testMode.ts); normal play always uses
+ * the defaults, so prerequisites are enforced.
+ */
+export interface RuleOptions {
+  /** Skip building prerequisites (limits, costs and collision still apply). */
+  ignoreRequirements?: boolean;
+}
+
 /** Whether a new building of this type may be started, given what already stands. */
-export function availability(type: BuildingType, standing: { type: BuildingType }[]): Availability {
+export function availability(type: BuildingType, standing: { type: BuildingType }[], rules: RuleOptions = {}): Availability {
   const def = BUILDINGS[type];
-  const missing = (def.requires ?? []).filter((r) => !standing.some((b) => b.type === r));
+  const missing = rules.ignoreRequirements ? [] : (def.requires ?? []).filter((r) => !standing.some((b) => b.type === r));
   if (missing.length) return { ok: false, reason: 'locked', missing };
   if (def.limit !== undefined && standing.filter((b) => b.type === type).length >= def.limit) {
     return { ok: false, reason: 'limit-reached', limit: def.limit };
@@ -218,4 +227,95 @@ export function buildCatalog(standing: { type: BuildingType }[], hasArt: (type: 
     type,
     availability: availability(type, standing),
   }));
+}
+
+/** What a catalog card shows about a building right now. */
+export type CatalogStatus = 'available' | 'locked' | 'insufficient' | 'built' | 'max' | 'awaiting-art';
+
+export interface CatalogCard {
+  type: BuildingType;
+  status: CatalogStatus;
+  /** Whether tapping the card starts placing it. */
+  placeable: boolean;
+  /** Prerequisites with whether each already stands (empty for buildings without any). */
+  requires: { type: BuildingType; met: boolean }[];
+  /** Prerequisites still missing (empty unless locked). */
+  missing: BuildingType[];
+  /** How much more of each resource is needed (only resources that fall short). */
+  shortfall: Partial<Resources>;
+  /** Short status label for the card. */
+  label: string;
+  /** Full explanation, shown when a card that can't be placed is tapped. */
+  detail: string;
+}
+
+const LABELS: Record<CatalogStatus, string> = {
+  available: 'Available',
+  locked: 'Locked',
+  insufficient: 'Insufficient resources',
+  built: 'Built',
+  max: 'Maximum reached',
+  'awaiting-art': 'Artwork coming soon',
+};
+
+const listNames = (types: BuildingType[]) => {
+  const names = types.map((t) => BUILDINGS[t].name);
+  return names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+};
+
+/**
+ * The status of one building for the catalog, in priority order: artwork pending (painted-only
+ * buildings without their painting can't be placed, even in test mode), built / maximum reached,
+ * locked (missing prerequisites), insufficient resources, available.
+ */
+export function catalogCard(
+  type: BuildingType,
+  state: { buildings: { type: BuildingType }[]; resources: Resources },
+  hasArt: (type: BuildingType) => boolean,
+  rules: RuleOptions = {},
+): CatalogCard {
+  const def = BUILDINGS[type];
+  const requires = (def.requires ?? []).map((r) => ({ type: r, met: state.buildings.some((b) => b.type === r) }));
+  const shortfall: Partial<Resources> = {};
+  for (const r of ['wood', 'stone', 'magic'] as const) {
+    if (state.resources[r] < def.cost[r]) shortfall[r] = def.cost[r] - state.resources[r];
+  }
+  const base = { type, requires, missing: [] as BuildingType[], shortfall };
+  const card = (status: CatalogStatus, detail: string, extra: Partial<CatalogCard> = {}): CatalogCard => ({
+    ...base,
+    status,
+    placeable: status === 'available',
+    label: LABELS[status],
+    detail,
+    ...extra,
+  });
+  if (def.needsArt && !hasArt(type)) {
+    return card('awaiting-art', `${def.name} is waiting for its painted artwork. It becomes buildable as soon as the painting arrives.`);
+  }
+  const avail = availability(type, state.buildings, rules);
+  if (!avail.ok && avail.reason === 'limit-reached') {
+    return avail.limit === 1
+      ? card('built', `Your realm already has its ${def.name}. Only one is allowed per realm.`)
+      : card('max', `Your realm already has the maximum of ${avail.limit} ${def.name} buildings.`);
+  }
+  if (!avail.ok) {
+    const met = requires.filter((r) => r.met).map((r) => r.type);
+    return card(
+      'locked',
+      `Build ${listNames(avail.missing)} first.${met.length ? ` (${listNames(met)} already ${met.length === 1 ? 'stands' : 'stand'}.)` : ''}`,
+      { missing: avail.missing },
+    );
+  }
+  const short = (Object.keys(shortfall) as (keyof Resources)[]).map((r) => `${shortfall[r]} more ${r}`);
+  if (short.length) return card('insufficient', `You need ${short.join(', ')}.`);
+  return card('available', `Tap to place ${def.name}.`);
+}
+
+/** Every building definition, in progression order, as catalog cards. */
+export function catalogCards(
+  state: { buildings: { type: BuildingType }[]; resources: Resources },
+  hasArt: (type: BuildingType) => boolean,
+  rules: RuleOptions = {},
+): CatalogCard[] {
+  return BUILDING_ORDER.map((t) => catalogCard(t, state, hasArt, rules));
 }
