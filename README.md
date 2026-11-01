@@ -7,6 +7,7 @@ fantasy realm on a floating isometric island.
 
 ## Play
 
+- **Contributors / AI sessions:** start with [CLAUDE.md](CLAUDE.md) and [docs/NEXT_SESSION.md](docs/NEXT_SESSION.md); status in [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md), plan in [docs/VISUAL_ROADMAP.md](docs/VISUAL_ROADMAP.md).
 - **Live build:** https://ukmarb-sys.github.io/level-up-rpg/ (published by the
   _Deploy to GitHub Pages_ workflow once Pages is enabled — see below)
 - **Locally:** `npm install && npm run dev`, then open the printed URL (use your phone

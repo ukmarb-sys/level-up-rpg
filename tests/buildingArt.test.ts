@@ -61,6 +61,25 @@ const CASES = [
       },
     },
   },
+  {
+    // painted for the 1x2 orientation: the importer mirrors it so the long forge front lies on
+    // the long edge of the 2x1 footprint (input-pixel effect points are mirrored with it)
+    type: 'blacksmith' as BuildingType,
+    raw: 'blacksmith.png',
+    file: 'buildings/blacksmith/blacksmith_r0',
+    opts: {
+      effectsSource: {
+        chimney: { x: 858, y: 195 },
+        windows: [
+          { x: 777, y: 790 },
+          { x: 745, y: 838 },
+          { x: 828, y: 649 },
+          { x: 487, y: 755 },
+          { x: 369, y: 547 },
+        ],
+      },
+    },
+  },
 ];
 
 const entryOf = (type: BuildingType) => applyMeta(manifestByKey.get(`bld-${type}-r0`)!, meta);
@@ -74,6 +93,10 @@ describe('painted farm, sawmill and mage tower', () => {
     expect(BUILDINGS.farm.cost).toEqual({ wood: 30, stone: 0, magic: 0 });
     expect(BUILDINGS.sawmill.cost).toEqual({ wood: 40, stone: 20, magic: 0 });
     expect(BUILDINGS.mageTower.cost).toEqual({ wood: 50, stone: 80, magic: 30 });
+    expect([BUILDINGS.blacksmith.width, BUILDINGS.blacksmith.depth]).toEqual([2, 1]);
+    expect(BUILDINGS.blacksmith.cost).toEqual({ wood: 60, stone: 20, magic: 0 });
+    expect(BUILDINGS.blacksmith.produces).toEqual({ stone: 3 });
+    expect(BUILDINGS.blacksmith.requires).toEqual(['sawmill']);
     for (const c of CASES) {
       const g = entryOf(c.type).geometry;
       // no visual overhang declared: the art is fitted to the logical footprint
@@ -93,6 +116,7 @@ describe('painted farm, sawmill and mage tower', () => {
     expect(entryOf('farm').geometry.canvas).toEqual({ width: 704, height: 544 });
     expect(entryOf('sawmill').geometry.canvas).toEqual({ width: 448, height: 448 });
     expect(entryOf('mageTower').geometry.canvas).toEqual({ width: 576, height: 1024 });
+    expect(entryOf('blacksmith').geometry.canvas).toEqual({ width: 448, height: 448 });
   });
 
   it('is reproducible from the raw sources with the documented settings', () => {
@@ -155,6 +179,23 @@ describe('painted farm, sawmill and mage tower', () => {
       expect(e.windows!.length, f).toBeGreaterThanOrEqual(4);
     }
     expect(meta['buildings/farm/farm_r0'].effects!.butterflies).toHaveLength(4);
+  });
+
+  it('lights the blacksmith forge, lanterns and window and smokes its chimney', () => {
+    const f = 'buildings/blacksmith/blacksmith_r0';
+    const r = master(f);
+    const e = meta[f].effects!;
+    expect(meta[f].import).toMatchObject({ mirrored: true });
+    // smoke starts on the painted chimney top
+    expect(A(r)(e.chimney!.x, e.chimney!.y + 4)).toBe(255);
+    expect(e.chimney!.y).toBeLessThan(100);
+    expect(e.windows).toHaveLength(5);
+    for (const w of e.windows!) {
+      const i = (w.y * r.width + w.x) * 4;
+      // firelight: warm (red and green high, blue low) or a white-hot lantern core
+      const [R, G, B] = [r.data[i], r.data[i + 1], r.data[i + 2]];
+      expect(R > 200 && G > 100 && (B < 160 || R + G + B > 720), `${w.x},${w.y}`).toBe(true);
+    }
   });
 
   it('uses the painted r0 for every rotation until directional art exists (mirrored where needed)', () => {
