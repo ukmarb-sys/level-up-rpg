@@ -104,12 +104,34 @@ const CASES = [
       },
     },
   },
+  {
+    // Square 2x2 footprint. The door and patio face front-right, but the painting is lit from
+    // the top-left like the rest of the village, so it is NOT mirrored (mirroring would flip the
+    // light); r1/r3 (mirrored r0) show the door front-left. The smoke plume is painted.
+    type: 'tavern' as BuildingType,
+    raw: 'tavern.png',
+    file: 'buildings/tavern/tavern_r0',
+    opts: {
+      mirror: false,
+      effects: {
+        chimney: null,
+        windows: [
+          { x: 271, y: 313 },
+          { x: 370, y: 301 },
+          { x: 171, y: 444 },
+          { x: 87, y: 411 },
+          { x: 342, y: 513 },
+          { x: 445, y: 491 },
+        ],
+      },
+    },
+  },
 ];
 
 const entryOf = (type: BuildingType) => applyMeta(manifestByKey.get(`bld-${type}-r0`)!, meta);
 const master = (file: string) => decodeImage(readFileSync(join(art, `${file}.png`)));
 
-describe('painted farm, sawmill, mage tower, blacksmith and alchemist', () => {
+describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', () => {
   it('keeps gameplay footprints and costs exactly as before', () => {
     expect([BUILDINGS.farm.width, BUILDINGS.farm.depth]).toEqual([2, 3]);
     expect([BUILDINGS.sawmill.width, BUILDINGS.sawmill.depth]).toEqual([2, 1]);
@@ -127,6 +149,13 @@ describe('painted farm, sawmill, mage tower, blacksmith and alchemist', () => {
     expect(BUILDINGS.alchemist.requires).toEqual(['mageTower']);
     expect(BUILDINGS.alchemist.tier).toBe(3);
     expect(BUILDINGS.alchemist.limit).toBeUndefined();
+    expect([BUILDINGS.tavern.width, BUILDINGS.tavern.depth]).toEqual([2, 2]);
+    expect(BUILDINGS.tavern.cost).toEqual({ wood: 80, stone: 30, magic: 0 });
+    expect(BUILDINGS.tavern.produces).toEqual({});
+    expect(BUILDINGS.tavern.boosts).toEqual({ all: 0.1 });
+    expect(BUILDINGS.tavern.requires).toEqual(['cottage', 'farm']);
+    expect(BUILDINGS.tavern.limit).toBe(1);
+    expect(BUILDINGS.tavern.tier).toBe(2);
     for (const c of CASES) {
       const g = entryOf(c.type).geometry;
       // no visual overhang declared: the art is fitted to the logical footprint
@@ -148,6 +177,7 @@ describe('painted farm, sawmill, mage tower, blacksmith and alchemist', () => {
     expect(entryOf('mageTower').geometry.canvas).toEqual({ width: 576, height: 1024 });
     expect(entryOf('blacksmith').geometry.canvas).toEqual({ width: 448, height: 448 });
     expect(entryOf('alchemist').geometry.canvas).toEqual({ width: 576, height: 640 });
+    expect(entryOf('tavern').geometry.canvas).toEqual({ width: 576, height: 640 });
   });
 
   it('is reproducible from the raw sources with the documented settings', () => {
@@ -253,6 +283,26 @@ describe('painted farm, sawmill, mage tower, blacksmith and alchemist', () => {
     }
     // the base's front corner sits on the footprint's front corner
     const k = diamondCorners(entryOf('alchemist').geometry);
+    let low = 0;
+    for (let y = 0; y < r.height; y++) for (let x = 0; x < r.width; x++) if (A(r)(x, y) > 128) low = y;
+    expect(Math.abs(low - k.bottom.y)).toBeLessThanOrEqual(2);
+  });
+
+  it('lights the tavern windows and lanterns and leaves its painted smoke alone', () => {
+    const f = 'buildings/tavern/tavern_r0';
+    const r = master(f);
+    const e = entryOf('tavern').effects!;
+    // kept as painted: lit from the top-left like the cottage
+    expect(meta[f].import).toMatchObject({ mirrored: false });
+    expect(meta[f].effects!.chimney).toBeNull();
+    expect(e.chimney).toBeNull();
+    expect(e.windows).toHaveLength(6);
+    for (const w of e.windows!) {
+      const i = (w.y * r.width + w.x) * 4;
+      const [R, G, B] = [r.data[i], r.data[i + 1], r.data[i + 2]];
+      expect(R > 200 && G > 100 && (B < 160 || R + G + B > 720), `${w.x},${w.y}`).toBe(true);
+    }
+    const k = diamondCorners(entryOf('tavern').geometry);
     let low = 0;
     for (let y = 0; y < r.height; y++) for (let x = 0; x < r.width; x++) if (A(r)(x, y) > 128) low = y;
     expect(Math.abs(low - k.bottom.y)).toBeLessThanOrEqual(2);

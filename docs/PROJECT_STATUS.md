@@ -1,6 +1,6 @@
 # Project status
 
-_Last updated: 2026-11-01, Alchemist's Workshop session._
+_Last updated: 2026-11-01, Alchemist's Workshop and Tavern session._
 
 ## Shipped to `main` (merged)
 
@@ -22,10 +22,10 @@ before claiming what is live.
 
 | Branch | What |
 | --- | --- |
-| `claude/level-up-rpg-review-sk02af` | Painted **Alchemist's Workshop** (`alchemist_r0`, 2×2, emerald sparkles on the still and flasks, 4 window glows, painted smoke so no animated smoke) and **per-building sparkle colours** (`src/game/effectPalette.ts`) |
+| `claude/level-up-rpg-review-sk02af` (PR #12) | Painted **Tavern** (`tavern_r0`, 2×2, painted smoke, 6 window and lantern glows, kept unmirrored for the top-left light) and painted **Alchemist's Workshop** (`alchemist_r0`, 2×2, emerald sparkles on the still and flasks, 4 window glows, painted smoke so no animated smoke) and **per-building sparkle colours** (`src/game/effectPalette.ts`) |
 
-**Still missing:** the **Tavern** painting. It was announced as attached but never reached the
-session, so the Tavern remains hidden. No placeholder was made.
+**Still missing for the first island:** the Marketplace, Ancient Temple and Castle Keep
+paintings. They stay hidden until their `_r0` arrives.
 
 ## Game state
 
@@ -38,7 +38,7 @@ session, so the Tavern remains hidden. No placeholder was made.
   | Sawmill | painted | 2×1 | starter |
   | Mage Tower | painted | 2×2 | starter |
   | Blacksmith | painted | 2×1 | tier 2, +3 stone/min, needs a Sawmill |
-  | Tavern | no art yet (hidden) | 2×2 | tier 2, +10% all production, needs a Cottage and a Farm, one per realm |
+  | Tavern | painted (open PR) | 2×2 | tier 2, +10% all production, needs a Cottage and a Farm, one per realm |
   | Marketplace | no art yet (hidden) | 3×2 | tier 3, +2 wood and +2 stone/min, needs a Tavern |
   | Alchemist's Workshop | painted (open PR) | 2×2 | tier 3, +4 magic/min, needs a Mage Tower |
   | Ancient Temple | no art yet (hidden) | 3×3 | tier 4, +25% magic, needs the Alchemist, one per realm |
@@ -49,15 +49,16 @@ session, so the Tavern remains hidden. No placeholder was made.
   on load.
 - **Environment:** painted trees, procedural grass and props, fireflies, spores, glows,
   butterflies, crystal sparkles and drifting cloud shadows.
-- **Quality:** 199 tests (195 on `main` before the Alchemist). The validator has no errors; its
+- **Quality:** 200 tests (195 on `main` before the Alchemist and Tavern). The validator has no errors; its
   warnings are four trees with straight sprite-sheet cut edges and the missing optional grass
   tiles. Performance on the Pixel 7 profile is about 24–26 draw calls per frame for the usual
   starter village; a six-building village (mage tower, alchemist, blacksmith, cottage, farm,
-  sawmill) measures 32 with or without the alchemist, so it adds none.
+  sawmill) measures 32 with or without the alchemist, so it adds none. With the Tavern added
+  as a seventh building, the village measures 36–37, against 34 without the Tavern.
 
 ## Known limitations
 
-- Only **r0** artwork exists for the farm, sawmill, mage tower, blacksmith and alchemist (and the cottage).
+- Only **r0** artwork exists for the farm, sawmill, mage tower, blacksmith, alchemist and tavern (and the cottage).
   r1/r3 are mirrored and r2 reuses r0, so the lighting flips and turned buildings show their
   front instead of their back.
 - Painted grass bases overhang the front edges by 11–20 world px (decoration only).
@@ -65,8 +66,10 @@ session, so the Tavern remains hidden. No placeholder was made.
 - Oak, enchanted, fir and spruce trees have truncated right edges from sprite-sheet slicing.
 - Grass, ground details, rocks, ruins, the cliff, paths, villagers and decorations are still
   procedural or missing. They need painted art (see `docs/ART_BRIEFS.md`).
-- The Alchemist's selection marker sits just above its painted smoke plume (the plume is part of
-  the sprite).
+- The Alchemist's and Tavern's selection markers sit just above their painted smoke plumes (the
+  plume is part of the sprite).
+- The Tavern's door faces front-right at r0 (kept as painted for the top-left light), and its
+  base is a little flatter than 2:1.
 - The `src/modules/` gameplay modules (quests, AI coaching, rewards) are scaffolding only
   (`milestones.ts` is the example).
 

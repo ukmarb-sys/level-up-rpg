@@ -58,15 +58,15 @@ Six new buildings with a purpose, a cost and a place in the progression:
 
 ## What is genuinely finished, and what still needs external artwork
 
-**Finished:** painted farm, sawmill, mage tower, blacksmith and Alchemist's Workshop with living effects; the cottage, untouched;
+**Finished:** painted farm, sawmill, mage tower, blacksmith, Alchemist's Workshop and Tavern with living effects; the cottage, untouched;
 the full rules and UI for six new buildings; cloud shadows; tests and documentation.
 
 **Needs external artwork** (high-quality painted art can't be generated in this environment).
 Exact specs and prompts are in [ART_BRIEFS.md](ART_BRIEFS.md):
 
-1. Four of the six new buildings (`_r0` each; they unlock in game automatically). The
-   **Blacksmith is done** (painted, in the build menu, with forge glow and chimney smoke), and so
-   is the **Alchemist's Workshop** (emerald sparkles, window glows, painted smoke).
+1. Three of the six new buildings: the Marketplace, Ancient Temple and Castle Keep (`_r0` each;
+   they unlock in game automatically). The **Blacksmith**, **Alchemist's Workshop** and
+   **Tavern** are done.
 2. `_r1`–`_r3` rotations for the farm, sawmill, mage tower and cottage (mirrored fallbacks for now).
 3. Cobbled path tiles, flower beds and fences, villagers and a painted island cliff. These also
    need small code features, listed in the brief.

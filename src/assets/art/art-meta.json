@@ -319,6 +319,48 @@
       "scale": 0.5327
     }
   },
+  "buildings/tavern/tavern_r0": {
+    "top": {
+      "x": 260,
+      "y": 121
+    },
+    "effects": {
+      "windows": [
+        {
+          "x": 271,
+          "y": 313
+        },
+        {
+          "x": 370,
+          "y": 301
+        },
+        {
+          "x": 171,
+          "y": 444
+        },
+        {
+          "x": 87,
+          "y": 411
+        },
+        {
+          "x": 342,
+          "y": 513
+        },
+        {
+          "x": 445,
+          "y": 491
+        }
+      ],
+      "chimney": null
+    },
+    "import": {
+      "source": "tavern.png",
+      "fill": 0.96,
+      "offsetY": 0,
+      "mirrored": false,
+      "scale": 0.4134
+    }
+  },
   "props/tree_enchanted": {
     "top": {
       "x": 192,
