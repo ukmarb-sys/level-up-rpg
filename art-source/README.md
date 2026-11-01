@@ -12,6 +12,7 @@ folder is bundled into the game. The game only loads the processed files in `src
 | `raw/buildings/farm.png` (854×788) | `src/assets/art/buildings/farm/farm_r0.{png,webp}` | From `levelup_buildings_pack.zip`. Farmhouse, wheat field, vegetable rows, fence and coop on one grass base, fitted to the **2×3** footprint (the logical footprint is authoritative; nothing was resized in gameplay). Canvas grown to 704×544 for the smoke. |
 | `raw/buildings/sawmill.png` (789×779) | `src/assets/art/buildings/sawmill/sawmill_r0.{png,webp}` | Fitted to the **2×1** footprint. A sliver of the neighbouring image on the left was removed. The sawdust effect is anchored where the blade meets the timber. |
 | `raw/buildings/mage_tower.png` (707×788) | `src/assets/art/buildings/mageTower/mageTower_r0.{png,webp}` | Fitted to the **2×2** footprint. Imported with `--keep-islands` so the halo's sparkles survive. The crystal is detected as the orb; window glows are set by hand (auto-detection also picked the gold emblem on the banner). |
+| `raw/buildings/blacksmith.png` (1254×1254) | `src/assets/art/buildings/blacksmith/blacksmith_r0.{png,webp}` | Blacksmith, fitted to the **2×1** footprint. It was painted for the 1×2 orientation (long forge front facing front-right), so the importer **mirrors** it to put the forge front on the footprint's long edge; r1/r3 (mirrored r0) therefore show it exactly as painted. Forge fire, coal bed, both lanterns and the gable window glow; smoke rises from the chimney. |
 
 Reproduce the committed sprites exactly. `tests/realArt.test.ts` checks this pixel for pixel.
 
@@ -46,6 +47,9 @@ npm run art:import -- art-source/raw/buildings/mage_tower.png --as mageTower_r0 
   --effect window=332,632 --effect window=255,642 --effect window=170,731 \
   --effect window=184,854 --effect window=302,880 \
   --effect sparkle=129,842 --effect sparkle=447,876 --effect sparkle=414,755 --effect sparkle=244,870 --effect sparkle=368,880
+npm run art:import -- art-source/raw/buildings/blacksmith.png --as blacksmith_r0 --effect-src chimney=858,195 \
+  --effect-src window=777,790 --effect-src window=745,838 --effect-src window=828,649 \
+  --effect-src window=487,755 --effect-src window=369,547
 npm run art:webp
 ```
 

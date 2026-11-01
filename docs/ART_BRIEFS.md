@@ -35,9 +35,13 @@ Prompt skeleton (fill in the subject line):
 
 ## The six new buildings (unlocked in game as soon as `_r0` exists)
 
+**Tip:** paint each building in its **r0 orientation**: the long side of a non-square footprint
+runs along the **front-left** edge (for the 2×1 Blacksmith and the 3×2 Marketplace). Art painted
+the other way round is mirrored automatically on import, which also flips its lighting.
+
 | Building | File (r0) | Footprint | Canvas | Anchor | Front corner | Subject for the prompt | Effects to mark |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Blacksmith | `buildings/blacksmith/blacksmith_r0.png` | 2×1 | 448 × 448 | (224, 320) | (288, 416) | stone forge with an open front, glowing hearth, anvil, bellows, racks of tools, tall stone chimney, a quench barrel | `chimney`, `window` on the hearth glow |
+| Blacksmith | `buildings/blacksmith/blacksmith_r0.png` | 2×1 | 448 × 448 | (224, 320) | (288, 416) | **✔ Delivered and in game** (see [BUILDING_ART.md](BUILDING_ART.md)). A painted `_r1` would add the true opposite view | done: `chimney`, forge, lanterns, window |
 | Tavern | `buildings/tavern/tavern_r0.png` | 2×2 | 576 × 640 | (288, 480) | (288, 608) | two-storey timber-and-plaster tavern with a hanging tankard sign, warm windows on both floors, benches and barrels by the door | `chimney`, 3–5 `window`s |
 | Marketplace | `buildings/marketplace/marketplace_r0.png` | 3×2 | 704 × 512 | (352, 320) | (416, 480) | small market square: three stalls with striped awnings (red, gold, teal), crates of produce, a stone well in the middle | none, or `butterfly` over the flower crates |
 | Alchemist's Workshop | `buildings/alchemist/alchemist_r0.png` | 2×2 | 576 × 640 | (288, 480) | (288, 608) | crooked stone-and-timber workshop with a copper still, green-glass alembics glowing softly, a small herb garden and a crooked chimney | `chimney`, `sparkle` on 2–3 glowing flasks, `window`s |

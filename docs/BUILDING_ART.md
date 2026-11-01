@@ -13,6 +13,9 @@ are in [`art-source/README.md`](../art-source/README.md).
 | Farm | **2×3** | 704 × 544 (height grown for the painted smoke) | chimney smoke, 6 window/lantern glows, butterflies |
 | Sawmill | **2×1** | 448 × 448 | chimney smoke, 4 window/lantern glows, sawdust at the blade |
 | Mage tower | **2×2** | 576 × 1024 | soft halo and runes on the crystal, 5 window/lantern glows, sparkles on the ground crystals, door rune and spell book |
+| Blacksmith | **2×1** | 448 × 448 | chimney smoke; forge fire, coal bed, two lanterns and the gable window glow |
+
+![The blacksmith on the island](screenshots/blacksmith-close.jpg)
 
 Gameplay is untouched: footprints, costs, production, collision, placement rules and saves
 (format v1) are all as before. `tests/buildingArt.test.ts` pins the footprints and costs.
@@ -43,12 +46,17 @@ procedural building geometry is gone.
   px). It's small, but visible up close.
 - **Smoke:** the farm and sawmill smoke plumes are painted; animated puffs rise from the
   chimneys over them (Visual Overhaul 2.0). The farm's selection marker sits above the plume.
+- **Blacksmith orientation.** It was painted with its long forge front facing front-right (the
+  1×2 view), so it is mirrored to fit the 2×1 footprint. The light then comes slightly from the
+  right instead of the left. Its plot is nearly square (1 : 1.2), so like the sawmill the grass
+  reaches up to 12 world px past the short front edge. Turning it (r1/r3) shows the painting
+  exactly as delivered.
 - **Similar houses.** The farmhouse and the cottage share a red-roof, stone-and-timber style,
   so they're easy to mix up at a glance. The farm's field and fence tell them apart.
 
 ## Missing rotation artwork
 
-Only **r0** exists for the farm, sawmill and mage tower. The other rotations are
+Only **r0** exists for the farm, sawmill, mage tower and blacksmith. The other rotations are
 **temporary fallbacks**, reported by `validate:assets`:
 
 | Building | r1 | r2 | r3 |
@@ -56,6 +64,7 @@ Only **r0** exists for the farm, sawmill and mage tower. The other rotations are
 | Farm (2×3 / 3×2) | r0 mirrored | r0 | r0 mirrored |
 | Sawmill (2×1 / 1×2) | r0 mirrored | r0 | r0 mirrored |
 | Mage tower (2×2) | r0 mirrored | r0 | r0 mirrored |
+| Blacksmith (2×1 / 1×2) | r0 mirrored (= the painting as delivered) | r0 | r0 mirrored (= as delivered) |
 
 Mirroring swaps the footprint's width and depth, which matches the quarter turn, so collision
 lines up. But the lighting flips, and r2 shows the same front as r0 instead of the back. Painted

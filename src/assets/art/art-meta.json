@@ -1,4 +1,45 @@
 {
+  "buildings/blacksmith/blacksmith_r0": {
+    "top": {
+      "x": 151,
+      "y": 66
+    },
+    "effects": {
+      "windows": [
+        {
+          "x": 170,
+          "y": 289
+        },
+        {
+          "x": 181,
+          "y": 306
+        },
+        {
+          "x": 152,
+          "y": 238
+        },
+        {
+          "x": 273,
+          "y": 276
+        },
+        {
+          "x": 315,
+          "y": 202
+        }
+      ],
+      "chimney": {
+        "x": 141,
+        "y": 77
+      }
+    },
+    "import": {
+      "source": "blacksmith.png",
+      "fill": 0.96,
+      "offsetY": 0,
+      "mirrored": true,
+      "scale": 0.3562
+    }
+  },
   "buildings/cottage/cottage_r0": {
     "visual": {
       "u0": -0.25,
