@@ -1,6 +1,6 @@
 # Project status
 
-_Last updated: 2026-11-01, Marketplace session._
+_Last updated: 2026-11-01, Ancient Temple session._
 
 ## Shipped to `main` (merged)
 
@@ -22,11 +22,11 @@ before claiming what is live.
 
 | Branch | What |
 | --- | --- |
-| `claude/level-up-rpg-review-sk02af` | Painted **Marketplace** (`marketplace_r0`, 3×2, cut out of its grass field by `scripts/cutout-marketplace.py`, ten lantern and window glows) |
+| `claude/level-up-rpg-review-sk02af` | Painted **Ancient Temple** (`temple_r0`, 3×3, generator haze cleared by `scripts/cutout-temple.py`, ice-blue crystal halo, cyan rune sparkles and motes, brazier flicker; per-building orb tint) |
 
-PR #13 (smoke fix and audit for every building) is merged.
+PR #14 (painted Marketplace) is merged.
 
-**Still missing for the first island:** the Ancient Temple and Castle Keep
+**Still missing for the first island:** the Castle Keep
 paintings. They stay hidden until their `_r0` arrives.
 
 ## Game state
@@ -41,9 +41,9 @@ paintings. They stay hidden until their `_r0` arrives.
   | Mage Tower | painted | 2×2 | starter |
   | Blacksmith | painted | 2×1 | tier 2, +3 stone/min, needs a Sawmill |
   | Tavern | painted | 2×2 | tier 2, +10% all production, needs a Cottage and a Farm, one per realm |
-  | Marketplace | painted (open PR) | 3×2 | tier 3, +2 wood and +2 stone/min, needs a Tavern |
+  | Marketplace | painted | 3×2 | tier 3, +2 wood and +2 stone/min, needs a Tavern |
   | Alchemist's Workshop | painted | 2×2 | tier 3, +4 magic/min, needs a Mage Tower |
-  | Ancient Temple | no art yet (hidden) | 3×3 | tier 4, +25% magic, needs the Alchemist, one per realm |
+  | Ancient Temple | painted (open PR) | 3×3 | tier 4, +25% magic, needs the Alchemist, one per realm |
   | Castle Keep | no art yet (hidden) | 4×4 | tier 5, +15% all production, needs the Marketplace, Temple and Blacksmith, one per realm |
 
 - **Economy:** wood, stone and magic. Starting resources 200 / 150 / 50. Demolish refunds 50%.
@@ -51,7 +51,7 @@ paintings. They stay hidden until their `_r0` arrives.
   on load.
 - **Environment:** painted trees, procedural grass and props, fireflies, spores, glows,
   butterflies, crystal sparkles and drifting cloud shadows.
-- **Quality:** 213 tests. The validator has no errors; its
+- **Quality:** 215 tests. The validator has no errors; its
   warnings are four trees with straight sprite-sheet cut edges and the missing optional grass
   tiles. Performance on the Pixel 7 profile is about 24–26 draw calls per frame for the usual
   starter village; a six-building village (mage tower, alchemist, blacksmith, cottage, farm,
@@ -60,7 +60,7 @@ paintings. They stay hidden until their `_r0` arrives.
 
 ## Known limitations
 
-- Only **r0** artwork exists for the farm, sawmill, mage tower, blacksmith, alchemist, tavern and marketplace (and the cottage).
+- Only **r0** artwork exists for the farm, sawmill, mage tower, blacksmith, alchemist, tavern, marketplace and temple (and the cottage).
   r1/r3 are mirrored and r2 reuses r0, so the lighting flips and turned buildings show their
   front instead of their back.
 - Painted grass bases overhang the front edges by 11–20 world px (decoration only).
@@ -71,6 +71,7 @@ paintings. They stay hidden until their `_r0` arrives.
 - The **Marketplace** is painted at about half the village scale (a whole market square on 3×2
   tiles), and its plaza is squarer and flatter than 3×2, so its left corner sits about 15 world px
   low. A repaint with fewer, larger stalls would match the Tavern.
+- The Ancient Temple's stairs face front-right at r0 (kept as painted for the top-left light).
 - The Tavern's door faces front-right at r0 (kept as painted for the top-left light), and its
   base is a little flatter than 2:1.
 - The `src/modules/` gameplay modules (quests, AI coaching, rewards) are scaffolding only

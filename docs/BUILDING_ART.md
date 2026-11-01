@@ -14,6 +14,7 @@ are in [`art-source/README.md`](../art-source/README.md).
 | Sawmill | **2×1** | 448 × 448 | chimney smoke, 4 window/lantern glows, sawdust at the blade |
 | Mage tower | **2×2** | 576 × 1024 | soft halo and runes on the crystal, 5 window/lantern glows, sparkles on the ground crystals, door rune and spell book |
 | Blacksmith | **2×1** | 448 × 448 | chimney smoke; forge fire, coal bed, two lanterns and the gable window glow |
+| Ancient Temple | **3×3** | 832 × 768 | ice-blue breathing halo on the floating crystal, cyan glints and rising motes on the runes, statue orbs and altar, warm flicker on the braziers; no smoke |
 | Marketplace | **3×2** | 704 × 512 | ten warm lantern and window glows (eight lanterns, two hall windows); the hall's chimney is capped, so no smoke |
 | Tavern | **2×2** | 576 × 640 | both dormers, the big latticed window, the hanging lantern and two table lanterns glow; **animated chimney smoke** from the chimney mouth (the static painted plume was removed) |
 | Alchemist's Workshop | **2×2** | 576 × 640 | **emerald sparkles** on the copper still and three potion flasks; the dormer, arched window, kiln mouth and porch lantern glow; delicate, softly glowing **mint chimney smoke** (the static painted plume was removed) |
@@ -25,6 +26,8 @@ are in [`art-source/README.md`](../art-source/README.md).
 ![The Tavern on the island](screenshots/tavern-close.jpg)
 
 ![The Marketplace on the island](screenshots/marketplace-close.jpg)
+
+![The Ancient Temple on the island](screenshots/temple-close.jpg)
 
 ![The Tavern's animated chimney smoke](screenshots/tavern-smoke.gif)
 
@@ -95,12 +98,20 @@ procedural building geometry is gone.
   village scale**: the hall's door and windows are roughly half the Tavern's.
 
   ![The Marketplace next to the Tavern](screenshots/marketplace-village.jpg)
+- **Ancient Temple.** Delivered with real transparency plus a semi-transparent generator glow,
+  including a milky fill inside the arch openings; `scripts/cutout-temple.py` clears it so the
+  arches are see-through. The stairs face front-right, but it is lit from the top-left like the
+  rest of the village, so it is kept as painted (like the Tavern). Its magic uses the building's
+  own colours (`src/game/effectPalette.ts`): an ice-blue crystal halo (`ORB_TINTS`) and cyan rune
+  sparkles (`SPARKLE_PALETTES`). The mage tower keeps its violet.
+
+  ![The temple's crystal, runes and braziers](screenshots/temple-effects.gif)
 - **Similar houses.** The farmhouse and the cottage share a red-roof, stone-and-timber style,
   so they're easy to mix up at a glance. The farm's field and fence tell them apart.
 
 ## Missing rotation artwork
 
-Only **r0** exists for the farm, sawmill, mage tower, blacksmith, alchemist, tavern and marketplace. The other rotations are
+Only **r0** exists for the farm, sawmill, mage tower, blacksmith, alchemist, tavern, marketplace and temple. The other rotations are
 **temporary fallbacks**, reported by `validate:assets`:
 
 | Building | r1 | r2 | r3 |
@@ -112,6 +123,7 @@ Only **r0** exists for the farm, sawmill, mage tower, blacksmith, alchemist, tav
 | Alchemist (2×2) | r0 mirrored | r0 | r0 mirrored |
 | Tavern (2×2) | r0 mirrored (door front-left) | r0 | r0 mirrored (door front-left) |
 | Marketplace (3×2 / 2×3) | r0 mirrored | r0 | r0 mirrored |
+| Ancient Temple (3×3) | r0 mirrored (stairs front-left) | r0 | r0 mirrored (stairs front-left) |
 
 Mirroring swaps the footprint's width and depth, which matches the quarter turn, so collision
 lines up. But the lighting flips, and r2 shows the same front as r0 instead of the back. Painted

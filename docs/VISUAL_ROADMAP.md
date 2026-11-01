@@ -15,7 +15,8 @@ and [ASSET_SPEC.md](ASSET_SPEC.md) (the source of truth).
 - [x] Painted Alchemist's Workshop (r0) with emerald sparkles (per-building sparkle colours)
 - [x] Painted Tavern (r0), painted smoke, six window and lantern glows
 - [x] Painted Marketplace (r0), cut out of its grass field, ten lantern and window glows
-- [x] Art-gated catalog: the Temple and Castle Keep rules are
+- [x] Painted Ancient Temple (r0): crystal halo, rune sparkles and floating motes, brazier flicker
+- [x] Art-gated catalog: the Castle Keep rules are
   ready and appear automatically when their art lands
 - [x] Ambient life: fireflies, spores, glows, butterflies, crystal sparkles, chimney smoke,
   window glows and cloud shadows
@@ -28,7 +29,6 @@ mirroring is needed.
 
 | Priority | Asset | Footprint and canvas | Unlocks or improves |
 | --- | --- | --- | --- |
-| 1 | `temple_r0` | 3×3, 832 × 768 | the Ancient Temple |
 | 3 | `castle_r0` | 4×4, 1088 × 1280 | the Castle Keep (end goal) |
 | 3 | `terrain/grass_0…3` | 256 × 128 (or seamless squares) | painted ground |
 | 4 | `_r1`, `_r2`, `_r3` for every building | same canvas as r0 | true side and back views (no mirrored lighting) |
