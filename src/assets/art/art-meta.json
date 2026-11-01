@@ -281,6 +281,63 @@
       "scale": 0.8416
     }
   },
+  "buildings/marketplace/marketplace_r0": {
+    "top": {
+      "x": 479,
+      "y": 93
+    },
+    "effects": {
+      "windows": [
+        {
+          "x": 175,
+          "y": 223
+        },
+        {
+          "x": 293,
+          "y": 242
+        },
+        {
+          "x": 148,
+          "y": 300
+        },
+        {
+          "x": 377,
+          "y": 279
+        },
+        {
+          "x": 439,
+          "y": 281
+        },
+        {
+          "x": 422,
+          "y": 376
+        },
+        {
+          "x": 319,
+          "y": 399
+        },
+        {
+          "x": 542,
+          "y": 255
+        },
+        {
+          "x": 413,
+          "y": 205
+        },
+        {
+          "x": 335,
+          "y": 255
+        }
+      ]
+    },
+    "import": {
+      "source": "marketplace.png",
+      "fill": 0.96,
+      "offsetY": 0,
+      "mirrored": false,
+      "scale": 0.422
+    }
+  },
   "buildings/sawmill/sawmill_r0": {
     "top": {
       "x": 261,

@@ -64,9 +64,9 @@ the full rules and UI for six new buildings; cloud shadows; tests and documentat
 **Needs external artwork** (high-quality painted art can't be generated in this environment).
 Exact specs and prompts are in [ART_BRIEFS.md](ART_BRIEFS.md):
 
-1. Three of the six new buildings: the Marketplace, Ancient Temple and Castle Keep (`_r0` each;
+1. Two of the six new buildings: the Ancient Temple and Castle Keep (`_r0` each;
    they unlock in game automatically). The **Blacksmith**, **Alchemist's Workshop** and
-   **Tavern** are done.
+   **Tavern** and the **Marketplace** are done.
 2. `_r1`–`_r3` rotations for the farm, sawmill, mage tower and cottage (mirrored fallbacks for now).
 3. Cobbled path tiles, flower beds and fences, villagers and a painted island cliff. These also
    need small code features, listed in the brief.

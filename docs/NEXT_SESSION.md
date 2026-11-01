@@ -4,7 +4,7 @@
 
 1. Read [CLAUDE.md](../CLAUDE.md) (rules, commands, layout), then
    [PROJECT_STATUS.md](PROJECT_STATUS.md) and [VISUAL_ROADMAP.md](VISUAL_ROADMAP.md).
-2. Check what has been merged since: the **Tavern smoke fix** PR (branch
+2. Check what has been merged since: the **Marketplace** PR (branch
    `claude/level-up-rpg-review-sk02af`) was open and unmerged at the end of the last session.
    ```bash
    git fetch origin && git log --oneline -5 origin/main
@@ -49,10 +49,10 @@ them.
 
 ## 3. Open questions for the owner
 
-- Merge the smoke fix PR #13 (Tavern, Farm, Alchemist and Sawmill, plus the smoke audit)? New building art must pass the smoke audit test in `tests/buildingArt.test.ts` (add the building to its list).
+- Merge the Marketplace PR? Its art is at about half the village scale; keep it, or commission a repaint with fewer, larger stalls? New building art must pass the smoke audit test in `tests/buildingArt.test.ts`.
 - **Owner's priorities (2026-11-01):** finish beautiful, consistent **front-facing (r0)** art for
-  all ten first-island buildings first. The Tavern and Alchemist are done; next are the
-  **Marketplace**, **Ancient Temple** and **Castle Keep**. r1–r3 rotations come later.
+  all ten first-island buildings first. The Tavern, Alchemist and Marketplace are done; next are
+  the **Ancient Temple** and **Castle Keep**. r1–r3 rotations come later.
 - Gameplay (quests, AI coaching, real-life progression in `src/modules/`) resumes only once the
   village has a cohesive visual identity. **No combat, heroes or story** for now.
 

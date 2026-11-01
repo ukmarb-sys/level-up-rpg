@@ -22,7 +22,8 @@ test-checked tables are in [ASSET_SPEC.md](ASSET_SPEC.md) §6.
   the logical footprint.
 - **No baked smoke or particles.** The game animates chimneys, windows, sparkles and butterflies
   at the points you mark (see "Effects" below).
-- **Deliver:** transparent PNG (real alpha, not a checkerboard), at least 2× the canvas size or
+- **Deliver:** transparent PNG (real alpha, not a checkerboard; art on an opaque painted field needs a
+  custom cut-out like `scripts/cutout-marketplace.py`), at least 2× the canvas size or
   any larger size, with **one building per image**. The importer crops, scales and aligns it.
 
 Prompt skeleton (fill in the subject line):
@@ -43,7 +44,7 @@ the other way round is mirrored automatically on import, which also flips its li
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Blacksmith | `buildings/blacksmith/blacksmith_r0.png` | 2×1 | 448 × 448 | (224, 320) | (288, 416) | **✔ Delivered and in game** (see [BUILDING_ART.md](BUILDING_ART.md)). A painted `_r1` would add the true opposite view | done: `chimney`, forge, lanterns, window |
 | Tavern | `buildings/tavern/tavern_r0.png` | 2×2 | 576 × 640 | (288, 480) | (288, 608) | **✔ Delivered and in game** (see [BUILDING_ART.md](BUILDING_ART.md)). Door faces front-right as painted (kept for the top-left light) | done: 6 `window`s and lanterns; animated `chimney` smoke (painted plume removed) |
-| Marketplace | `buildings/marketplace/marketplace_r0.png` | 3×2 | 704 × 512 | (352, 320) | (416, 480) | small market square: three stalls with striped awnings (red, gold, teal), crates of produce, a stone well in the middle | none, or `butterfly` over the flower crates |
+| Marketplace | `buildings/marketplace/marketplace_r0.png` | 3×2 | 704 × 512 | (352, 320) | (416, 480) | **✔ Delivered and in game** (see [BUILDING_ART.md](BUILDING_ART.md)). Painted at about half the village scale; a repaint with fewer, larger stalls would match the Tavern | done: 10 lantern/window glows |
 | Alchemist's Workshop | `buildings/alchemist/alchemist_r0.png` | 2×2 | 576 × 640 | (288, 480) | (288, 608) | **✔ Delivered and in game** (see [BUILDING_ART.md](BUILDING_ART.md)). A painted `_r1` would add the true side view | done: emerald `sparkle`s on the still and flasks, 4 `window`s; delicate animated `chimney` smoke (painted plume removed) |
 | Ancient Temple | `buildings/temple/temple_r0.png` | 3×3 | 832 × 768 | (416, 544) | (416, 736) | ancient pale-stone temple: columns, mossy steps, a domed roof with a gold finial, a softly glowing rune altar at the entrance | `sparkle` on the altar and runes |
 | Castle Keep | `buildings/castle/castle_r0.png` | 4×4 | 1088 × 1280 | (544, 992) | (544, 1248) | stone castle keep with four corner towers, conical slate roofs, banners in violet and gold, a gatehouse facing the front-left | `window`s, optional `chimney` |
@@ -84,6 +85,7 @@ as-is), so the lighting flips and r2 shows the front instead of the back. Paint 
 | Blacksmith | 448 × 448 | 2×1 / 1×2 |
 | Alchemist's Workshop | 576 × 640 | 2×2 |
 | Tavern | 576 × 640 | 2×2 |
+| Marketplace | 704 × 512 | 3×2 / 2×3 |
 | Cottage | as in `art-meta.json` | 1×1 |
 
 ## World details that need painted art (not yet supported in code)

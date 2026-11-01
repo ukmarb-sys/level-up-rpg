@@ -161,6 +161,30 @@ const CASES = [
       },
     },
   },
+  {
+    // Delivered on an opaque grass field: cut out by scripts/cutout-marketplace.py from
+    // marketplace_original.png. Long side along the front-left edge (r0), so no mirroring.
+    // The hall's chimney is capped (no opening), so it has no smoke; lanterns and windows glow.
+    type: 'marketplace' as BuildingType,
+    raw: 'marketplace.png',
+    file: 'buildings/marketplace/marketplace_r0',
+    opts: {
+      effects: {
+        windows: [
+          { x: 175, y: 223 },
+          { x: 293, y: 242 },
+          { x: 148, y: 300 },
+          { x: 377, y: 279 },
+          { x: 439, y: 281 },
+          { x: 422, y: 376 },
+          { x: 319, y: 399 },
+          { x: 542, y: 255 },
+          { x: 413, y: 205 },
+          { x: 335, y: 255 },
+        ],
+      },
+    },
+  },
 ];
 
 const entryOf = (type: BuildingType) => applyMeta(manifestByKey.get(`bld-${type}-r0`)!, meta);
@@ -184,6 +208,12 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
     expect(BUILDINGS.alchemist.requires).toEqual(['mageTower']);
     expect(BUILDINGS.alchemist.tier).toBe(3);
     expect(BUILDINGS.alchemist.limit).toBeUndefined();
+    expect([BUILDINGS.marketplace.width, BUILDINGS.marketplace.depth]).toEqual([3, 2]);
+    expect(BUILDINGS.marketplace.cost).toEqual({ wood: 120, stone: 60, magic: 0 });
+    expect(BUILDINGS.marketplace.produces).toEqual({ wood: 2, stone: 2 });
+    expect(BUILDINGS.marketplace.requires).toEqual(['tavern']);
+    expect(BUILDINGS.marketplace.tier).toBe(3);
+    expect(BUILDINGS.marketplace.limit).toBeUndefined();
     expect([BUILDINGS.tavern.width, BUILDINGS.tavern.depth]).toEqual([2, 2]);
     expect(BUILDINGS.tavern.cost).toEqual({ wood: 80, stone: 30, magic: 0 });
     expect(BUILDINGS.tavern.produces).toEqual({});
@@ -213,6 +243,7 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
     expect(entryOf('blacksmith').geometry.canvas).toEqual({ width: 448, height: 448 });
     expect(entryOf('alchemist').geometry.canvas).toEqual({ width: 576, height: 640 });
     expect(entryOf('tavern').geometry.canvas).toEqual({ width: 576, height: 640 });
+    expect(entryOf('marketplace').geometry.canvas).toEqual({ width: 704, height: 512 });
   });
 
   it('is reproducible from the raw sources with the documented settings', () => {
@@ -383,6 +414,61 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
     expect(Math.abs(low - k.bottom.y)).toBeLessThanOrEqual(2);
   });
 
+  it('cuts the marketplace cleanly out of its grass field and lights its lanterns', () => {
+    const f = 'buildings/marketplace/marketplace_r0';
+    const r = master(f);
+    expect(meta[f].import).toMatchObject({ mirrored: false });
+    // the source used for import is the cut-out: real transparency, no grass field left
+    const cut = decodeImage(readFileSync(join(root, 'art-source/raw/buildings/marketplace.png')));
+    const orig = decodeImage(readFileSync(join(root, 'art-source/raw/buildings/marketplace_original.png')));
+    expect([cut.width, cut.height]).toEqual([orig.width, orig.height]);
+    for (const [x, y] of [[0, 0], [cut.width - 1, 0], [0, cut.height - 1], [cut.width - 1, cut.height - 1]]) expect(A(cut)(x, y)).toBe(0);
+    let kept = 0;
+    let changed = 0;
+    for (let i = 0; i < cut.width * cut.height; i++) {
+      if (cut.data[i * 4 + 3] === 0) continue;
+      kept++;
+      // kept pixels are the painting's own colours (only the background was removed)
+      for (let k = 0; k < 3; k++) if (cut.data[i * 4 + k] !== orig.data[i * 4 + k]) changed++;
+    }
+    expect(changed).toBe(0);
+    expect(kept / (cut.width * cut.height)).toBeGreaterThan(0.4);
+    expect(kept / (cut.width * cut.height)).toBeLessThan(0.55);
+    // the grass field is gone: almost every grass-coloured pixel of the original was removed
+    // (what remains is the plaza's own grass tufts and a little foliage shading)
+    const isGrass = (d: Uint8Array, i: number) => {
+      const [R, G, B] = [d[i] / 255, d[i + 1] / 255, d[i + 2] / 255];
+      const max = Math.max(R, G, B);
+      const min = Math.min(R, G, B);
+      if (max === min || max !== G) return false;
+      const h = 60 * ((B - R) / (max - min) + 2);
+      const sat = (max - min) / max;
+      return h >= 72 && h <= 105 && sat >= 0.55 && sat <= 0.87 && max >= 0.15 && max <= 0.6;
+    };
+    let grass = 0;
+    let grassKept = 0;
+    for (let i = 0; i < orig.width * orig.height; i++) {
+      if (!isGrass(orig.data, i * 4)) continue;
+      grass++;
+      if (cut.data[i * 4 + 3] > 0) grassKept++;
+    }
+    expect(grass).toBeGreaterThan(700_000);
+    expect(grassKept / grass).toBeLessThan(0.01);
+    // warm lantern and window glows, on lit pixels
+    const e = entryOf('marketplace').effects!;
+    expect(e.windows).toHaveLength(10);
+    for (const w of e.windows!) {
+      const i = (w.y * r.width + w.x) * 4;
+      const [R, G, B] = [r.data[i], r.data[i + 1], r.data[i + 2]];
+      expect(R > 200 && G > 100 && (B < 160 || R + G + B > 720), `${w.x},${w.y}`).toBe(true);
+    }
+    // the plaza's front corner sits on the footprint's front corner
+    const k = diamondCorners(entryOf('marketplace').geometry);
+    let low = 0;
+    for (let y = 0; y < r.height; y++) for (let x = 0; x < r.width; x++) if (A(r)(x, y) > 128) low = y;
+    expect(Math.abs(low - k.bottom.y)).toBeLessThanOrEqual(2);
+  });
+
   it('smoke audit: every painted chimney smokes from its opening, with no painted plume left', () => {
     const lum = (r: Raster, x: number, y: number) => {
       const i = (y * r.width + x) * 4;
@@ -413,8 +499,9 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
       for (let y = 0; y < c!.y - 3; y++) for (let x = Math.max(0, c!.x - 70); x < Math.min(r.width, c!.x + 90); x++) if (smokeLike(r, x, y)) plume++;
       expect(plume, `${type}: painted smoke above the chimney`).toBeLessThan(20);
     }
-    // the mage tower has no chimney, so no smoke
+    // the mage tower has no chimney and the market hall's chimney is capped: no smoke
     expect(entryOf('mageTower').effects!.chimney ?? null).toBeNull();
+    expect(entryOf('marketplace').effects!.chimney ?? null).toBeNull();
   });
 
   it('uses the painted r0 for every rotation until directional art exists (mirrored where needed)', () => {
