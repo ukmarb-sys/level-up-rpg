@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BUILDING_ORDER } from '../src/core/buildings';
-import { DEFAULT_SMOKE_STYLE, DEFAULT_SPARKLE_PALETTE, SMOKE_STYLES, SPARKLE_PALETTES, smokeStyle, sparklePalette } from '../src/game/effectPalette';
+import { DEFAULT_ORB_TINT, DEFAULT_SMOKE_STYLE, DEFAULT_SPARKLE_PALETTE, ORB_TINTS, SMOKE_STYLES, SPARKLE_PALETTES, orbTint, smokeStyle, sparklePalette } from '../src/game/effectPalette';
 
 const rgb = (c: number) => [(c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff];
 
@@ -74,5 +74,21 @@ describe('per-building chimney smoke', () => {
     expect(g).toBeGreaterThan(r);
     expect(g).toBeGreaterThan(b);
     expect(DEFAULT_SMOKE_STYLE.additive).toBeUndefined();
+  });
+});
+
+describe('temple magic colours', () => {
+  it('gives the temple cyan rune sparkles and an ice-blue crystal halo; the mage tower stays violet', () => {
+    const p = sparklePalette('temple');
+    for (const c of [p.glow, ...p.motes]) {
+      const [r, , b] = rgb(c);
+      expect(b, c.toString(16)).toBeGreaterThan(r);
+    }
+    const [r, g, b] = rgb(orbTint('temple'));
+    expect(b).toBeGreaterThan(g);
+    expect(g).toBeGreaterThan(r);
+    expect(orbTint('mageTower')).toBe(DEFAULT_ORB_TINT);
+    expect(DEFAULT_ORB_TINT).toBe(0x8f6bff);
+    expect(Object.keys(ORB_TINTS)).toEqual(['temple']);
   });
 });

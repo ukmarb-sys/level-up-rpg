@@ -22,10 +22,25 @@ export const DEFAULT_SPARKLE_PALETTE: SparklePalette = { glow: 0xc9a6ff, motes: 
 export const SPARKLE_PALETTES: Partial<Record<BuildingType, SparklePalette>> = {
   // Emerald alchemy: matches the glowing green alembic and potion flasks.
   alchemist: { glow: 0x2fe07f, motes: [0x9dffc6, 0x34d57a, 0xc8ff8a] },
+  // Ancient temple: cool cyan runes and the statues' glowing orbs, pale blue motes.
+  temple: { glow: 0x62d6ff, motes: [0xc4f3ff, 0x7cc4ff, 0xe2ecff] },
 };
 
 export function sparklePalette(type: BuildingType): SparklePalette {
   return SPARKLE_PALETTES[type] ?? DEFAULT_SPARKLE_PALETTE;
+}
+
+/**
+ * Tint of the soft breathing halo around a painted floating crystal (the `orb` effect point).
+ * Violet by default (the mage tower); the temple's crystal is ice blue.
+ */
+export const DEFAULT_ORB_TINT = 0x8f6bff;
+export const ORB_TINTS: Partial<Record<BuildingType, number>> = {
+  temple: 0x4fa8ff,
+};
+
+export function orbTint(type: BuildingType): number {
+  return ORB_TINTS[type] ?? DEFAULT_ORB_TINT;
 }
 
 /**

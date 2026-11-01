@@ -185,6 +185,32 @@ const CASES = [
       },
     },
   },
+  {
+    // Real transparency, but the generator's semi-transparent haze filled the arch openings:
+    // cleared by scripts/cutout-temple.py from temple_original.png. Square 3x3 footprint; the
+    // stairs face front-right, but it is lit from the top-left like the village, so not mirrored.
+    type: 'temple' as BuildingType,
+    raw: 'temple.png',
+    file: 'buildings/temple/temple_r0',
+    opts: {
+      effects: {
+        orb: { x: 428, y: 392 },
+        sparkles: [
+          { x: 338, y: 632 },
+          { x: 350, y: 464 },
+          { x: 347, y: 495 },
+          { x: 392, y: 333 },
+          { x: 270, y: 485 },
+          { x: 557, y: 414 },
+          { x: 425, y: 455 },
+        ],
+        windows: [
+          { x: 605, y: 500 },
+          { x: 437, y: 551 },
+        ],
+      },
+    },
+  },
 ];
 
 const entryOf = (type: BuildingType) => applyMeta(manifestByKey.get(`bld-${type}-r0`)!, meta);
@@ -208,6 +234,13 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
     expect(BUILDINGS.alchemist.requires).toEqual(['mageTower']);
     expect(BUILDINGS.alchemist.tier).toBe(3);
     expect(BUILDINGS.alchemist.limit).toBeUndefined();
+    expect([BUILDINGS.temple.width, BUILDINGS.temple.depth]).toEqual([3, 3]);
+    expect(BUILDINGS.temple.cost).toEqual({ wood: 0, stone: 180, magic: 120 });
+    expect(BUILDINGS.temple.produces).toEqual({});
+    expect(BUILDINGS.temple.boosts).toEqual({ magic: 0.25 });
+    expect(BUILDINGS.temple.requires).toEqual(['alchemist']);
+    expect(BUILDINGS.temple.limit).toBe(1);
+    expect(BUILDINGS.temple.tier).toBe(4);
     expect([BUILDINGS.marketplace.width, BUILDINGS.marketplace.depth]).toEqual([3, 2]);
     expect(BUILDINGS.marketplace.cost).toEqual({ wood: 120, stone: 60, magic: 0 });
     expect(BUILDINGS.marketplace.produces).toEqual({ wood: 2, stone: 2 });
@@ -244,6 +277,7 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
     expect(entryOf('alchemist').geometry.canvas).toEqual({ width: 576, height: 640 });
     expect(entryOf('tavern').geometry.canvas).toEqual({ width: 576, height: 640 });
     expect(entryOf('marketplace').geometry.canvas).toEqual({ width: 704, height: 512 });
+    expect(entryOf('temple').geometry.canvas).toEqual({ width: 832, height: 768 });
   });
 
   it('is reproducible from the raw sources with the documented settings', () => {
@@ -469,6 +503,60 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
     expect(Math.abs(low - k.bottom.y)).toBeLessThanOrEqual(2);
   });
 
+  it('clears the temple haze and lights its crystal, runes, statue orbs and braziers', () => {
+    const f = 'buildings/temple/temple_r0';
+    const r = master(f);
+    expect(meta[f].import).toMatchObject({ mirrored: false });
+    // the cleaned source: same size, haze areas cleared, every remaining pixel exactly as painted
+    const clean = decodeImage(readFileSync(join(root, 'art-source/raw/buildings/temple.png')));
+    const orig = decodeImage(readFileSync(join(root, 'art-source/raw/buildings/temple_original.png')));
+    expect([clean.width, clean.height]).toEqual([orig.width, orig.height]);
+    let changed = 0;
+    let cleared = 0;
+    for (let i = 0; i < clean.width * clean.height; i++) {
+      if (clean.data[i * 4 + 3] === 0) {
+        if (orig.data[i * 4 + 3] > 0) cleared++;
+        continue;
+      }
+      for (let k = 0; k < 4; k++) if (clean.data[i * 4 + k] !== orig.data[i * 4 + k]) changed++;
+    }
+    expect(changed).toBe(0);
+    expect(cleared).toBeGreaterThan(150_000);
+    // no milky semi-transparent areas left in the sprite (only thin anti-aliased edges)
+    let semi = 0;
+    for (let y = 2; y < r.height - 2; y++) {
+      for (let x = 2; x < r.width - 2; x++) {
+        const a = A(r)(x, y);
+        if (a > 0 && a < 200 && [A(r)(x - 2, y), A(r)(x + 2, y), A(r)(x, y - 2), A(r)(x, y + 2)].every((v) => v > 0 && v < 200)) semi++;
+      }
+    }
+    expect(semi, 'semi-transparent areas').toBeLessThan(150);
+    // effects on the painting: the crystal (orb), cyan runes and statue orbs (sparkles), braziers
+    const e = entryOf('temple').effects!;
+    const px = (p: { x: number; y: number }) => {
+      const i = (p.y * r.width + p.x) * 4;
+      return [r.data[i], r.data[i + 1], r.data[i + 2], r.data[i + 3]];
+    };
+    const [cr, cg, cb] = px(e.orb!);
+    expect(cb > 240 && cg > 200 && cr > 150, 'crystal is bright ice blue').toBe(true);
+    expect(e.sparkles).toHaveLength(7);
+    for (const p of e.sparkles!) {
+      const [R, G, B, a] = px(p);
+      expect(a, `rune ${p.x},${p.y}`).toBe(255);
+      expect(B > 240 && G > 200 && B >= R, `rune ${p.x},${p.y} glows cyan`).toBe(true);
+    }
+    expect(e.windows).toHaveLength(2);
+    for (const w of e.windows!) {
+      const [R, G, B] = px(w);
+      expect(R > 240 && G > 200 && B < 140, `brazier ${w.x},${w.y}`).toBe(true);
+    }
+    // the base's front corner sits on the footprint's front corner
+    const k = diamondCorners(entryOf('temple').geometry);
+    let low = 0;
+    for (let y = 0; y < r.height; y++) for (let x = 0; x < r.width; x++) if (A(r)(x, y) > 128) low = y;
+    expect(Math.abs(low - k.bottom.y)).toBeLessThanOrEqual(2);
+  });
+
   it('smoke audit: every painted chimney smokes from its opening, with no painted plume left', () => {
     const lum = (r: Raster, x: number, y: number) => {
       const i = (y * r.width + x) * 4;
@@ -502,6 +590,8 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
     // the mage tower has no chimney and the market hall's chimney is capped: no smoke
     expect(entryOf('mageTower').effects!.chimney ?? null).toBeNull();
     expect(entryOf('marketplace').effects!.chimney ?? null).toBeNull();
+    // the temple's braziers have painted flames and no chimney: no smoke
+    expect(entryOf('temple').effects!.chimney ?? null).toBeNull();
   });
 
   it('uses the painted r0 for every rotation until directional art exists (mirrored where needed)', () => {

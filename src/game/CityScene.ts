@@ -10,7 +10,7 @@ import { drawBuilding, flat, makeButterflyTexture, makeMoteTexture, type ArtAnch
 import { buildingChoice, effectPoint, lodTextureKey, makeSprite, queueArt, type LoadedArt } from './assets';
 import { detectQuality } from './environment/device';
 import { EnvironmentLayer } from './environment/EnvironmentLayer';
-import { smokeStyle, sparklePalette } from './effectPalette';
+import { orbTint, smokeStyle, sparklePalette } from './effectPalette';
 import { buildingAt } from '../core/grid';
 import { groundKey, type AssetEntry } from '../assets/manifest';
 import { overhangs, type GridRect } from '../assets/spec';
@@ -464,7 +464,7 @@ export class CityScene extends Phaser.Scene {
 
     if (a.orb && a.sprite) {
       // The painted crystal already glows: a soft breathing halo only, no bobbing light.
-      const halo = glow(a.orb, 0x8f6bff, 1.5);
+      const halo = glow(a.orb, orbTint(type), 1.5);
       halo.setAlpha(0.5);
       this.tweens.killTweensOf(halo);
       this.tweens.add({ targets: halo, alpha: { from: 0.25, to: 0.6 }, duration: 1800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
