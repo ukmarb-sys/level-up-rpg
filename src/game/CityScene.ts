@@ -10,6 +10,7 @@ import { drawBuilding, flat, makeButterflyTexture, makeMoteTexture, type ArtAnch
 import { buildingChoice, effectPoint, lodTextureKey, makeSprite, queueArt, type LoadedArt } from './assets';
 import { detectQuality } from './environment/device';
 import { EnvironmentLayer } from './environment/EnvironmentLayer';
+import { sparklePalette } from './effectPalette';
 import { buildingAt } from '../core/grid';
 import { groundKey, type AssetEntry } from '../assets/manifest';
 import { overhangs, type GridRect } from '../assets/spec';
@@ -487,9 +488,11 @@ export class CityScene extends Phaser.Scene {
     const low = this.environment?.quality.tier === 'low';
 
     if (a.sparkles?.length) {
-      // Crystals: a soft glint on each, breathing out of step, and motes drifting up from them.
+      // Crystals and potions: a soft glint on each, breathing out of step, and motes drifting
+      // up from them, in the building's own magic colour (effectPalette.ts).
+      const palette = sparklePalette(type);
       a.sparkles.forEach((p, i) => {
-        const g = this.add.image(p.x, p.y, 'mote').setTint(0xc9a6ff).setScale(0.55).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.35);
+        const g = this.add.image(p.x, p.y, 'mote').setTint(palette.glow).setScale(0.55).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.35);
         c.add(g);
         if (motion) this.tweens.add({ targets: g, alpha: { from: 0.15, to: 0.6 }, duration: 1300 + i * 270, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: i * 350 });
       });
@@ -502,7 +505,7 @@ export class CityScene extends Phaser.Scene {
             const p = pts[Math.floor(Math.random() * pts.length)];
             const m = this.add
               .image(p.x + (Math.random() - 0.5) * 4, p.y, 'mote')
-              .setTint(Math.random() < 0.5 ? 0xd9c2ff : 0xa98bff)
+              .setTint(palette.motes[Math.floor(Math.random() * palette.motes.length)])
               .setScale(0.16 + Math.random() * 0.1)
               .setBlendMode(Phaser.BlendModes.ADD);
             c.add(m);

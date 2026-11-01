@@ -1,6 +1,6 @@
 # Project status
 
-_Last updated: 2026-11-01, at the end of the Blacksmith session (PR #11)._
+_Last updated: 2026-11-01, Alchemist's Workshop and Tavern session._
 
 ## Shipped to `main` (merged)
 
@@ -12,16 +12,20 @@ _Last updated: 2026-11-01, at the end of the Blacksmith session (PR #11)._
 | #8 | Six painted **trees**, prop validation, one shared prop atlas (keeps draw calls low on Android) |
 | #9 | Painted **farm, sawmill and mage tower** (r0) |
 | #10 | Visual Overhaul 2.0: living effects (smoke, windows, butterflies, crystal sparkles), **six new buildings' rules** (art-gated), cloud shadows |
+| #11 | Painted **Blacksmith** (`blacksmith_r0`) plus the handoff docs (`CLAUDE.md`, this file, `VISUAL_ROADMAP.md`, `NEXT_SESSION.md`) |
 
-The deploy workflow for `main` at `f1fd1c5` (PR #10) **succeeded** in GitHub Actions on
+The deploy workflow for `main` at `d2fb43d` (PR #11) **succeeded** in GitHub Actions on
 2026-11-01. The live page is https://ukmarb-sys.github.io/level-up-rpg/. Check it in a browser
 before claiming what is live.
 
 ## Open (awaiting the owner's review; not merged)
 
-| PR | What |
+| Branch | What |
 | --- | --- |
-| #11 | Painted **Blacksmith** (`blacksmith_r0`, mirrored to fit 2×1, forge and lantern glows, chimney smoke) **plus this handoff** (`CLAUDE.md`, `docs/PROJECT_STATUS.md`, `docs/VISUAL_ROADMAP.md`, `docs/NEXT_SESSION.md`) |
+| `claude/level-up-rpg-review-sk02af` (PR #12) | Painted **Tavern** (`tavern_r0`, 2×2, painted smoke, 6 window and lantern glows, kept unmirrored for the top-left light) and painted **Alchemist's Workshop** (`alchemist_r0`, 2×2, emerald sparkles on the still and flasks, 4 window glows, painted smoke so no animated smoke) and **per-building sparkle colours** (`src/game/effectPalette.ts`) |
+
+**Still missing for the first island:** the Marketplace, Ancient Temple and Castle Keep
+paintings. They stay hidden until their `_r0` arrives.
 
 ## Game state
 
@@ -33,10 +37,10 @@ before claiming what is live.
   | Farm | painted | 2×3 | starter |
   | Sawmill | painted | 2×1 | starter |
   | Mage Tower | painted | 2×2 | starter |
-  | Blacksmith | painted (PR #11) | 2×1 | tier 2, +3 stone/min, needs a Sawmill |
-  | Tavern | no art yet (hidden) | 2×2 | tier 2, +10% all production, needs a Cottage and a Farm, one per realm |
+  | Blacksmith | painted | 2×1 | tier 2, +3 stone/min, needs a Sawmill |
+  | Tavern | painted (open PR) | 2×2 | tier 2, +10% all production, needs a Cottage and a Farm, one per realm |
   | Marketplace | no art yet (hidden) | 3×2 | tier 3, +2 wood and +2 stone/min, needs a Tavern |
-  | Alchemist's Workshop | no art yet (hidden) | 2×2 | tier 3, +4 magic/min, needs a Mage Tower |
+  | Alchemist's Workshop | painted (open PR) | 2×2 | tier 3, +4 magic/min, needs a Mage Tower |
   | Ancient Temple | no art yet (hidden) | 3×3 | tier 4, +25% magic, needs the Alchemist, one per realm |
   | Castle Keep | no art yet (hidden) | 4×4 | tier 5, +15% all production, needs the Marketplace, Temple and Blacksmith, one per realm |
 
@@ -45,13 +49,16 @@ before claiming what is live.
   on load.
 - **Environment:** painted trees, procedural grass and props, fireflies, spores, glows,
   butterflies, crystal sparkles and drifting cloud shadows.
-- **Quality:** 195 tests on the PR #11 branch (194 on `main`). The validator has no errors; its
+- **Quality:** 200 tests (195 on `main` before the Alchemist and Tavern). The validator has no errors; its
   warnings are four trees with straight sprite-sheet cut edges and the missing optional grass
-  tiles. Performance on the Pixel 7 profile is about 24–26 draw calls per frame.
+  tiles. Performance on the Pixel 7 profile is about 24–26 draw calls per frame for the usual
+  starter village; a six-building village (mage tower, alchemist, blacksmith, cottage, farm,
+  sawmill) measures 32 with or without the alchemist, so it adds none. With the Tavern added
+  as a seventh building, the village measures 36–37, against 34 without the Tavern.
 
 ## Known limitations
 
-- Only **r0** artwork exists for the farm, sawmill, mage tower and blacksmith (and the cottage).
+- Only **r0** artwork exists for the farm, sawmill, mage tower, blacksmith, alchemist and tavern (and the cottage).
   r1/r3 are mirrored and r2 reuses r0, so the lighting flips and turned buildings show their
   front instead of their back.
 - Painted grass bases overhang the front edges by 11–20 world px (decoration only).
@@ -59,6 +66,10 @@ before claiming what is live.
 - Oak, enchanted, fir and spruce trees have truncated right edges from sprite-sheet slicing.
 - Grass, ground details, rocks, ruins, the cliff, paths, villagers and decorations are still
   procedural or missing. They need painted art (see `docs/ART_BRIEFS.md`).
+- The Alchemist's and Tavern's selection markers sit just above their painted smoke plumes (the
+  plume is part of the sprite).
+- The Tavern's door faces front-right at r0 (kept as painted for the top-left light), and its
+  base is a little flatter than 2:1.
 - The `src/modules/` gameplay modules (quests, AI coaching, rewards) are scaffolding only
   (`milestones.ts` is the example).
 

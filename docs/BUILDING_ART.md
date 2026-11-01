@@ -14,8 +14,14 @@ are in [`art-source/README.md`](../art-source/README.md).
 | Sawmill | **2×1** | 448 × 448 | chimney smoke, 4 window/lantern glows, sawdust at the blade |
 | Mage tower | **2×2** | 576 × 1024 | soft halo and runes on the crystal, 5 window/lantern glows, sparkles on the ground crystals, door rune and spell book |
 | Blacksmith | **2×1** | 448 × 448 | chimney smoke; forge fire, coal bed, two lanterns and the gable window glow |
+| Tavern | **2×2** | 576 × 640 | both dormers, the big latticed window, the hanging lantern and two table lanterns glow; the chimney smoke is **painted** (no animated smoke) |
+| Alchemist's Workshop | **2×2** | 576 × 640 | **emerald sparkles** on the copper still and three potion flasks; the dormer, arched window, kiln mouth and porch lantern glow; the chimney smoke is **painted** (no animated smoke) |
 
 ![The blacksmith on the island](screenshots/blacksmith-close.jpg)
+
+![The Alchemist's Workshop on the island](screenshots/alchemist-close.jpg)
+
+![The Tavern on the island](screenshots/tavern-close.jpg)
 
 Gameplay is untouched: footprints, costs, production, collision, placement rules and saves
 (format v1) are all as before. `tests/buildingArt.test.ts` pins the footprints and costs.
@@ -51,12 +57,23 @@ procedural building geometry is gone.
   right instead of the left. Its plot is nearly square (1 : 1.2), so like the sawmill the grass
   reaches up to 12 world px past the short front edge. Turning it (r1/r3) shows the painting
   exactly as delivered.
+- **Alchemist smoke and colour.** The painting already has a smoke plume above its chimney, so
+  the game's chimney smoke is switched off (`chimney: null`) to avoid two plumes. Because the
+  painted plume is part of the sprite, the selection marker sits just above the smoke. Its
+  sparkles use the building's own **emerald** palette (`src/game/effectPalette.ts`) instead of
+  the mage tower's violet.
+- **Tavern orientation and base.** Its door and patio face front-right instead of the r0
+  front-left, but it is kept as painted: the light comes from the top-left like every other
+  building, and mirroring would flip it. Gameplay doesn't depend on which face the door is on;
+  turning the Tavern (r1/r3) shows the door front-left. Its base is painted slightly flatter than
+  2:1, so the grass at the side corners sits about 9 world px below the footprint's side corners.
+  Its painted smoke replaces the game's (`chimney: null`), and the selection marker sits above it.
 - **Similar houses.** The farmhouse and the cottage share a red-roof, stone-and-timber style,
   so they're easy to mix up at a glance. The farm's field and fence tell them apart.
 
 ## Missing rotation artwork
 
-Only **r0** exists for the farm, sawmill, mage tower and blacksmith. The other rotations are
+Only **r0** exists for the farm, sawmill, mage tower, blacksmith, alchemist and tavern. The other rotations are
 **temporary fallbacks**, reported by `validate:assets`:
 
 | Building | r1 | r2 | r3 |
@@ -65,6 +82,8 @@ Only **r0** exists for the farm, sawmill, mage tower and blacksmith. The other r
 | Sawmill (2×1 / 1×2) | r0 mirrored | r0 | r0 mirrored |
 | Mage tower (2×2) | r0 mirrored | r0 | r0 mirrored |
 | Blacksmith (2×1 / 1×2) | r0 mirrored (= the painting as delivered) | r0 | r0 mirrored (= as delivered) |
+| Alchemist (2×2) | r0 mirrored | r0 | r0 mirrored |
+| Tavern (2×2) | r0 mirrored (door front-left) | r0 | r0 mirrored (door front-left) |
 
 Mirroring swaps the footprint's width and depth, which matches the quarter turn, so collision
 lines up. But the lighting flips, and r2 shows the same front as r0 instead of the back. Painted

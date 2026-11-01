@@ -4,8 +4,8 @@
 
 1. Read [CLAUDE.md](../CLAUDE.md) (rules, commands, layout), then
    [PROJECT_STATUS.md](PROJECT_STATUS.md) and [VISUAL_ROADMAP.md](VISUAL_ROADMAP.md).
-2. Check what has been merged since: PR **#11** (Blacksmith + this handoff) was open and
-   unmerged at the end of the last session.
+2. Check what has been merged since: the **Alchemist's Workshop + Tavern** PR #12 (branch
+   `claude/level-up-rpg-review-sk02af`) was open and unmerged at the end of the last session.
    ```bash
    git fetch origin && git log --oneline -5 origin/main
    ```
@@ -38,17 +38,22 @@
    `docs/PROJECT_STATUS.md`. Commit, push, open a PR with screenshots, and report any visual
    limitations.
 
+**The painting already has smoke:** import with `--effect chimney=none` so the game doesn't add
+a second plume. **Magic in another colour:** add the building to `SPARKLE_PALETTES` in
+`src/game/effectPalette.ts` (violet is the default).
+
 **Painted-only buildings** (`needsArt: true` in `src/core/buildings.ts`) appear in the build
 menu automatically once `buildings/<type>/<type>_r0.{png,webp}` exists. Don't add code to show
 them.
 
 ## 3. Open questions for the owner
 
-- Merge PR #11 (Blacksmith + handoff)?
-- Which art comes next? The roadmap suggests the Tavern and Alchemist first.
-- Should r1–r3 rotation paintings be commissioned for the existing buildings (mirrored lighting
-  today)?
-- When should gameplay work (quests, AI coaching, rewards in `src/modules/`) resume?
+- Merge PR #12 (Alchemist's Workshop + Tavern)?
+- **Owner's priorities (2026-11-01):** finish beautiful, consistent **front-facing (r0)** art for
+  all ten first-island buildings first. The Tavern and Alchemist are done; next are the
+  **Marketplace**, **Ancient Temple** and **Castle Keep**. r1–r3 rotations come later.
+- Gameplay (quests, AI coaching, real-life progression in `src/modules/`) resumes only once the
+  village has a cohesive visual identity. **No combat, heroes or story** for now.
 
 ## 4. Gotchas
 

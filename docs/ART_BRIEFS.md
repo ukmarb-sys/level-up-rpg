@@ -42,14 +42,18 @@ the other way round is mirrored automatically on import, which also flips its li
 | Building | File (r0) | Footprint | Canvas | Anchor | Front corner | Subject for the prompt | Effects to mark |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Blacksmith | `buildings/blacksmith/blacksmith_r0.png` | 2×1 | 448 × 448 | (224, 320) | (288, 416) | **✔ Delivered and in game** (see [BUILDING_ART.md](BUILDING_ART.md)). A painted `_r1` would add the true opposite view | done: `chimney`, forge, lanterns, window |
-| Tavern | `buildings/tavern/tavern_r0.png` | 2×2 | 576 × 640 | (288, 480) | (288, 608) | two-storey timber-and-plaster tavern with a hanging tankard sign, warm windows on both floors, benches and barrels by the door | `chimney`, 3–5 `window`s |
+| Tavern | `buildings/tavern/tavern_r0.png` | 2×2 | 576 × 640 | (288, 480) | (288, 608) | **✔ Delivered and in game** (see [BUILDING_ART.md](BUILDING_ART.md)). Door faces front-right as painted (kept for the top-left light) | done: 6 `window`s and lanterns; smoke is painted |
 | Marketplace | `buildings/marketplace/marketplace_r0.png` | 3×2 | 704 × 512 | (352, 320) | (416, 480) | small market square: three stalls with striped awnings (red, gold, teal), crates of produce, a stone well in the middle | none, or `butterfly` over the flower crates |
-| Alchemist's Workshop | `buildings/alchemist/alchemist_r0.png` | 2×2 | 576 × 640 | (288, 480) | (288, 608) | crooked stone-and-timber workshop with a copper still, green-glass alembics glowing softly, a small herb garden and a crooked chimney | `chimney`, `sparkle` on 2–3 glowing flasks, `window`s |
+| Alchemist's Workshop | `buildings/alchemist/alchemist_r0.png` | 2×2 | 576 × 640 | (288, 480) | (288, 608) | **✔ Delivered and in game** (see [BUILDING_ART.md](BUILDING_ART.md)). A painted `_r1` would add the true side view | done: emerald `sparkle`s on the still and flasks, 4 `window`s; smoke is painted |
 | Ancient Temple | `buildings/temple/temple_r0.png` | 3×3 | 832 × 768 | (416, 544) | (416, 736) | ancient pale-stone temple: columns, mossy steps, a domed roof with a gold finial, a softly glowing rune altar at the entrance | `sparkle` on the altar and runes |
 | Castle Keep | `buildings/castle/castle_r0.png` | 4×4 | 1088 × 1280 | (544, 992) | (544, 1248) | stone castle keep with four corner towers, conical slate roofs, banners in violet and gold, a gatehouse facing the front-left | `window`s, optional `chimney` |
 
 The left and right corners always touch the 32 px side margins at the anchor's height. Rotations
 `_r1`–`_r3` use the same canvas (2×1 and 3×2 swap to 1×2 and 2×3; see ASSET_SPEC §6).
+
+**Sparkle colour** is configurable per building in `src/game/effectPalette.ts` (violet by
+default, emerald for the alchemist). If a painting already includes smoke, import it with
+`--effect chimney=none` so the game doesn't add a second plume.
 
 Import, using the mage tower as an example:
 
@@ -73,6 +77,9 @@ as-is), so the lighting flips and r2 shows the front instead of the back. Paint 
 | Farm | 704 × 544 | 2×3 / 3×2 |
 | Sawmill | 448 × 448 | 2×1 / 1×2 |
 | Mage tower | 576 × 1024 | 2×2 |
+| Blacksmith | 448 × 448 | 2×1 / 1×2 |
+| Alchemist's Workshop | 576 × 640 | 2×2 |
+| Tavern | 576 × 640 | 2×2 |
 | Cottage | as in `art-meta.json` | 1×1 |
 
 ## World details that need painted art (not yet supported in code)
