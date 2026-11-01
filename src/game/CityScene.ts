@@ -10,7 +10,7 @@ import { drawBuilding, flat, makeButterflyTexture, makeMoteTexture, type ArtAnch
 import { buildingChoice, effectPoint, lodTextureKey, makeSprite, queueArt, type LoadedArt } from './assets';
 import { detectQuality } from './environment/device';
 import { EnvironmentLayer } from './environment/EnvironmentLayer';
-import { sparklePalette } from './effectPalette';
+import { smokeStyle, sparklePalette } from './effectPalette';
 import { buildingAt } from '../core/grid';
 import { groundKey, type AssetEntry } from '../assets/manifest';
 import { overhangs, type GridRect } from '../assets/spec';
@@ -385,19 +385,21 @@ export class CityScene extends Phaser.Scene {
 
     if (a.chimney) {
       const chimney = a.chimney;
+      const smoke = smokeStyle(type);
       const timer = this.time.addEvent({
-        delay: 650,
+        delay: smoke.interval,
         loop: true,
         callback: () => {
-          const s = this.add.image(chimney.x, chimney.y, 'mote').setTint(0xcfc6d6).setScale(0.35).setAlpha(0.5);
+          const s = this.add.image(chimney.x, chimney.y, 'mote').setTint(smoke.tint).setScale(smoke.scaleFrom).setAlpha(smoke.alpha);
+          if (smoke.additive) s.setBlendMode(Phaser.BlendModes.ADD);
           c.add(s);
           this.tweens.add({
             targets: s,
-            x: chimney.x + 6 + Math.random() * 8,
-            y: chimney.y - 26 - Math.random() * 10,
-            scale: 0.9,
+            x: chimney.x + smoke.drift + Math.random() * smoke.driftJitter,
+            y: chimney.y - smoke.rise - Math.random() * smoke.riseJitter,
+            scale: smoke.scaleTo,
             alpha: 0,
-            duration: 2200,
+            duration: smoke.duration,
             onComplete: () => s.destroy(),
           });
         },

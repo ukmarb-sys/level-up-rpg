@@ -9,11 +9,11 @@ folder is bundled into the game. The game only loads the processed files in `src
 | `raw/levelup_mystic_garden.png` (686×1024) | `src/assets/art/buildings/cottage/cottage_r0_ground.{png,webp}` | Decorative ground layer of the cottage, placed on the tile behind-right of it. It never blocks that tile. |
 | `raw/trees/tree_{pine,spruce,fir,oak,enchanted,mystic}.png` (320 × 512/576/480/448/480/512) | `src/assets/art/props/tree_*.{png,webp}` | From `levelup_trees_pack.zip`. Delivered at the exact spec canvas with the trunk on the anchor, so they're kept pixel for pixel. Import cleans the generator alpha (haze, 1–5% of the body semi-transparent) and removes slivers of neighbouring trees left by sprite-sheet slicing (fir, oak, enchanted, mystic). |
 
-| `raw/buildings/farm.png` (854×788) | `src/assets/art/buildings/farm/farm_r0.{png,webp}` | From `levelup_buildings_pack.zip`. Farmhouse, wheat field, vegetable rows, fence and coop on one grass base, fitted to the **2×3** footprint (the logical footprint is authoritative; nothing was resized in gameplay). Canvas grown to 704×544 for the smoke. |
-| `raw/buildings/sawmill.png` (789×779) | `src/assets/art/buildings/sawmill/sawmill_r0.{png,webp}` | Fitted to the **2×1** footprint. A sliver of the neighbouring image on the left was removed. The sawdust effect is anchored where the blade meets the timber. |
+| `raw/buildings/farm.png` (854×788) | `src/assets/art/buildings/farm/farm_r0.{png,webp}` | From `levelup_buildings_pack.zip`. Farmhouse, wheat field, vegetable rows, fence and coop on one grass base, fitted to the **2×3** footprint (the logical footprint is authoritative; nothing was resized in gameplay). Canvas grown to 704×544 for the (since removed) painted smoke. The static painted plume is erased after alignment (`--erase 470,20,552,118`) and the pale smoke stub left inside the chimney mouth is retouched from the dark mouth beside it (`--inpaint 503,121,511,126`, 40 px); every other pixel is unchanged. Animated smoke rises from the mouth (510, 122). |
+| `raw/buildings/sawmill.png` (789×779) | `src/assets/art/buildings/sawmill/sawmill_r0.{png,webp}` | Fitted to the **2×1** footprint. A sliver of the neighbouring image on the left was removed. The sawdust effect is anchored where the blade meets the timber. The static painted smoke plume is erased after alignment (`--erase 255,75,335,149`) and the smoke stub inside the chimney mouth retouched (`--inpaint 274,150,280,153`, 18 px); every other pixel is unchanged. The original animated smoke rises from the middle of the opening (276, 151). |
 | `raw/buildings/mage_tower.png` (707×788) | `src/assets/art/buildings/mageTower/mageTower_r0.{png,webp}` | Fitted to the **2×2** footprint. Imported with `--keep-islands` so the halo's sparkles survive. The crystal is detected as the orb; window glows are set by hand (auto-detection also picked the gold emblem on the banner). |
-| `raw/buildings/tavern.png` (1254×1254) | `src/assets/art/buildings/tavern/tavern_r0.{png,webp}` | Tavern, fitted to the **2×2** footprint (scale 0.413). The door and patio face **front-right**, but it is deliberately **not mirrored** (`--no-mirror`): the painting is lit from the top-left like the rest of the village, and mirroring would flip that light. r1/r3 (mirrored r0) show the door front-left. Its base is painted slightly flatter than 2:1, so the side corners sit about 9 world px below the footprint diamond's (not corrected, to avoid distorting the art). The smoke is **painted**, so the game's smoke is off (`chimney=none`). Six warm glows: both dormers, the big latticed window, the hanging lantern by the sign and the two table lanterns (the beer-mug sign and banner are excluded). |
-| `raw/buildings/alchemist.png` (1312×1199) | `src/assets/art/buildings/alchemist/alchemist_r0.{png,webp}` | Alchemist's Workshop, fitted to the **2×2** footprint (scale 0.381, no mirroring: the open shop porch already faces front-left). Generator alpha (body at 250–253, background haze) cleaned on import. The painting includes its own chimney smoke, so the game's smoke is **off** (`chimney=none`). Warm glows on the dormer, arched window, kiln mouth and porch lantern (the green banner emblem and the green still are excluded); **emerald sparkles** on the still and three potion flasks. |
+| `raw/buildings/tavern.png` (1254×1254) | `src/assets/art/buildings/tavern/tavern_r0.{png,webp}` | Tavern, fitted to the **2×2** footprint (scale 0.413). The door and patio face **front-right**, but it is deliberately **not mirrored** (`--no-mirror`): the painting is lit from the top-left like the rest of the village, and mirroring would flip that light. r1/r3 (mirrored r0) show the door front-left. Its base is painted slightly flatter than 2:1, so the side corners sit about 9 world px below the footprint diamond's (not corrected, to avoid distorting the art). The generator painted a **static** smoke plume above the chimney: it is erased from the sprite after alignment (`--erase 170,100,300,187`, output px; every building pixel is unchanged) and the game animates the Tavern's own smoke style from the chimney mouth (`--effect chimney=222,191`). Six warm glows: both dormers, the big latticed window, the hanging lantern by the sign and the two table lanterns (the beer-mug sign and banner are excluded). |
+| `raw/buildings/alchemist.png` (1312×1199) | `src/assets/art/buildings/alchemist/alchemist_r0.{png,webp}` | Alchemist's Workshop, fitted to the **2×2** footprint (scale 0.381, no mirroring: the open shop porch already faces front-left). Generator alpha (body at 250–253, background haze) cleaned on import. The painted (static) smoke plume is erased after alignment; the smoke that covered the cap's back rim is trimmed to the rim's peaked outline (four 1-row `--erase` steps) and the smoke stub inside the mouth is retouched (`--inpaint 328,223,337,227`, 36 px). Every other pixel is unchanged. Delicate animated smoke rises from the mouth (332, 225). Warm glows on the dormer, arched window, kiln mouth and porch lantern (the green banner emblem and the green still are excluded); **emerald sparkles** on the still and three potion flasks. |
 | `raw/buildings/blacksmith.png` (1254×1254) | `src/assets/art/buildings/blacksmith/blacksmith_r0.{png,webp}` | Blacksmith, fitted to the **2×1** footprint. It was painted for the 1×2 orientation (long forge front facing front-right), so the importer **mirrors** it to put the forge front on the footprint's long edge; r1/r3 (mirrored r0) therefore show it exactly as painted. Forge fire, coal bed, both lanterns and the gable window glow; smoke rises from the chimney. |
 
 Reproduce the committed sprites exactly. `tests/realArt.test.ts` checks this pixel for pixel.
@@ -39,23 +39,28 @@ npm run art:webp
 The buildings (`tests/buildingArt.test.ts` checks these pixel for pixel too):
 
 ```bash
-npm run art:import -- art-source/raw/buildings/farm.png --as farm_r0 --effect chimney=510,122 \
+npm run art:import -- art-source/raw/buildings/farm.png --as farm_r0 \
+  --erase 470,20,552,118 --inpaint 503,121,511,126 --effect chimney=510,122 \
   --effect window=437,219 --effect window=562,224 --effect window=404,286 --effect window=547,299 \
   --effect window=485,296 --effect window=356,390 \
   --effect butterfly=203,367 --effect butterfly=300,330 --effect butterfly=585,330 --effect butterfly=413,460
 npm run art:import -- art-source/raw/buildings/sawmill.png --as sawmill_r0 --effect-src wheel=438,505 \
-  --effect chimney=278,155 --effect window=215,203 --effect window=339,236 --effect window=178,281 --effect window=365,287
+  --erase 255,75,335,149 --inpaint 274,150,280,153 \
+  --effect chimney=276,151 --effect window=215,203 --effect window=339,236 --effect window=178,281 --effect window=365,287
 npm run art:import -- art-source/raw/buildings/mage_tower.png --as mageTower_r0 --keep-islands \
   --effect window=332,632 --effect window=255,642 --effect window=170,731 \
   --effect window=184,854 --effect window=302,880 \
   --effect sparkle=129,842 --effect sparkle=447,876 --effect sparkle=414,755 --effect sparkle=244,870 --effect sparkle=368,880
-npm run art:import -- art-source/raw/buildings/blacksmith.png --as blacksmith_r0 --effect-src chimney=858,195 \
+npm run art:import -- art-source/raw/buildings/blacksmith.png --as blacksmith_r0 --effect chimney=148,73 \
   --effect-src window=777,790 --effect-src window=745,838 --effect-src window=828,649 \
   --effect-src window=487,755 --effect-src window=369,547
-npm run art:import -- art-source/raw/buildings/alchemist.png --as alchemist_r0 --effect chimney=none \
+npm run art:import -- art-source/raw/buildings/alchemist.png --as alchemist_r0 \
+  --erase 305,150,420,221 --erase 305,221,330,222 --erase 340,221,420,222 \
+  --erase 305,222,326,223 --erase 344,222,420,223 --inpaint 328,223,337,227 --effect chimney=332,225 \
   --effect window=262,296 --effect window=366,428 --effect window=305,500 --effect window=221,389 \
   --effect sparkle=305,418 --effect sparkle=247,466 --effect sparkle=397,346 --effect sparkle=150,428
-npm run art:import -- art-source/raw/buildings/tavern.png --as tavern_r0 --no-mirror --effect chimney=none \
+npm run art:import -- art-source/raw/buildings/tavern.png --as tavern_r0 --no-mirror \
+  --erase 170,100,300,187 --effect chimney=222,191 \
   --effect window=271,313 --effect window=370,301 --effect window=171,444 \
   --effect window=87,411 --effect window=342,513 --effect window=445,491
 npm run art:webp
