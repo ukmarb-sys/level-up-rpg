@@ -49,7 +49,7 @@ them.
 
 ## 3. Open questions for the owner
 
-- Merge the smoke fix PR #13 (Tavern, Farm and Alchemist)? The **sawmill** still has a painted plume under its animated puffs (double smoke); fix it the same way if wanted.
+- Merge the smoke fix PR #13 (Tavern, Farm, Alchemist and Sawmill, plus the smoke audit)? New building art must pass the smoke audit test in `tests/buildingArt.test.ts` (add the building to its list).
 - **Owner's priorities (2026-11-01):** finish beautiful, consistent **front-facing (r0)** art for
   all ten first-island buildings first. The Tavern and Alchemist are done; next are the
   **Marketplace**, **Ancient Temple** and **Castle Keep**. r1–r3 rotations come later.

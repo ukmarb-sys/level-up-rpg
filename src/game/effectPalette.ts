@@ -62,8 +62,9 @@ export const DEFAULT_SMOKE_STYLE: SmokeStyle = {
   duration: 2200,
 };
 
-// The tavern, farm and alchemist paintings came with static smoke painted in; it was removed from
-// the sprites (`--erase`/`--inpaint` on import) and these animated styles replace it.
+// The tavern, farm, alchemist and sawmill paintings came with static smoke painted in; it was
+// removed from the sprites (`--erase`/`--inpaint` on import). These three get their own animated
+// style; the sawmill keeps the default.
 export const SMOKE_STYLES: Partial<Record<BuildingType, SmokeStyle>> = {
   // Tavern: a soft, steady column, a little denser and taller than the rest: a working hearth.
   tavern: { tint: 0xddd5d2, interval: 380, alpha: 0.72, scaleFrom: 0.28, scaleTo: 1.05, rise: 34, riseJitter: 12, drift: 8, driftJitter: 8, duration: 2600 },

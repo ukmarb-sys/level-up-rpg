@@ -28,9 +28,10 @@ type Rect = { x0: number; y0: number; x1: number; y1: number };
  * is erased (output px), a pale smoke stub left inside the chimney mouth is retouched from the
  * pixels beside it, and the game animates smoke from the mouth instead.
  */
-const SMOKE_FIX: Record<'tavern' | 'farm' | 'alchemist', { erase: Rect[]; inpaint: Rect[]; chimney: { x: number; y: number } }> = {
+const SMOKE_FIX: Record<'tavern' | 'farm' | 'alchemist' | 'sawmill', { erase: Rect[]; inpaint: Rect[]; chimney: { x: number; y: number } }> = {
   tavern: { erase: [{ x0: 170, y0: 100, x1: 300, y1: 187 }], inpaint: [], chimney: { x: 222, y: 191 } },
   farm: { erase: [{ x0: 470, y0: 20, x1: 552, y1: 118 }], inpaint: [{ x0: 503, y0: 121, x1: 511, y1: 126 }], chimney: { x: 510, y: 122 } },
+  sawmill: { erase: [{ x0: 255, y0: 75, x1: 335, y1: 149 }], inpaint: [{ x0: 274, y0: 150, x1: 280, y1: 153 }], chimney: { x: 276, y: 151 } },
   alchemist: {
     // the plume, then the smoke that covered the cap's back rim trimmed to the rim's peaked outline
     erase: [
@@ -67,7 +68,9 @@ const CASES = [
     file: 'buildings/sawmill/sawmill_r0',
     opts: {
       effectsSource: { wheel: { x: 438, y: 505 } },
-      effects: { chimney: { x: 278, y: 155 }, windows: [{ x: 215, y: 203 }, { x: 339, y: 236 }, { x: 178, y: 281 }, { x: 365, y: 287 }] },
+      erase: SMOKE_FIX.sawmill.erase,
+      inpaint: SMOKE_FIX.sawmill.inpaint,
+      effects: { chimney: SMOKE_FIX.sawmill.chimney, windows: [{ x: 215, y: 203 }, { x: 339, y: 236 }, { x: 178, y: 281 }, { x: 365, y: 287 }] },
     },
   },
   {
@@ -95,8 +98,9 @@ const CASES = [
     raw: 'blacksmith.png',
     file: 'buildings/blacksmith/blacksmith_r0',
     opts: {
+      // smoke from the middle of the dark chimney opening (output px)
+      effects: { chimney: { x: 148, y: 73 } },
       effectsSource: {
-        chimney: { x: 858, y: 195 },
         windows: [
           { x: 777, y: 790 },
           { x: 745, y: 838 },
@@ -316,7 +320,7 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
     expect(Math.abs(low - k.bottom.y)).toBeLessThanOrEqual(2);
   });
 
-  for (const type of ['tavern', 'farm', 'alchemist'] as const) {
+  for (const type of ['tavern', 'farm', 'alchemist', 'sawmill'] as const) {
     const f = `buildings/${type}/${type}_r0`;
     const fix = SMOKE_FIX[type];
 
@@ -377,6 +381,40 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
     let low = 0;
     for (let y = 0; y < r.height; y++) for (let x = 0; x < r.width; x++) if (A(r)(x, y) > 128) low = y;
     expect(Math.abs(low - k.bottom.y)).toBeLessThanOrEqual(2);
+  });
+
+  it('smoke audit: every painted chimney smokes from its opening, with no painted plume left', () => {
+    const lum = (r: Raster, x: number, y: number) => {
+      const i = (y * r.width + x) * 4;
+      return 0.3 * r.data[i] + 0.59 * r.data[i + 1] + 0.11 * r.data[i + 2];
+    };
+    // light, grey-ish (low saturation), visibly opaque: what a painted smoke plume is made of
+    const smokeLike = (r: Raster, x: number, y: number) => {
+      const i = (y * r.width + x) * 4;
+      const [R, G, B, a] = [r.data[i], r.data[i + 1], r.data[i + 2], r.data[i + 3]];
+      const max = Math.max(R, G, B);
+      const min = Math.min(R, G, B);
+      const l = (max + min) / 510;
+      const sat = max === min ? 0 : l > 0.5 ? (max - min) / (510 - max - min) : (max - min) / (max + min);
+      return a >= 40 && l > 0.6 && sat < 0.25;
+    };
+    const withChimney: BuildingType[] = ['cottage', 'farm', 'sawmill', 'blacksmith', 'tavern', 'alchemist'];
+    for (const type of withChimney) {
+      const f = `buildings/${type}/${type}_r0`;
+      const r = master(f);
+      const c = entryOf(type).effects!.chimney;
+      expect(c, `${type}: smoke is on`).toBeTruthy();
+      // the emitter is in the dark chimney opening, with open sky above it
+      expect(A(r)(c!.x, c!.y), type).toBe(255);
+      expect(lum(r, c!.x, c!.y), `${type}: emitter in the dark opening`).toBeLessThan(110);
+      expect(A(r)(c!.x, c!.y - 8), `${type}: sky above the opening`).toBe(0);
+      // no painted plume above the chimney (a plume is thousands of px; a few light rim stones are fine)
+      let plume = 0;
+      for (let y = 0; y < c!.y - 3; y++) for (let x = Math.max(0, c!.x - 70); x < Math.min(r.width, c!.x + 90); x++) if (smokeLike(r, x, y)) plume++;
+      expect(plume, `${type}: painted smoke above the chimney`).toBeLessThan(20);
+    }
+    // the mage tower has no chimney, so no smoke
+    expect(entryOf('mageTower').effects!.chimney ?? null).toBeNull();
   });
 
   it('uses the painted r0 for every rotation until directional art exists (mirrored where needed)', () => {

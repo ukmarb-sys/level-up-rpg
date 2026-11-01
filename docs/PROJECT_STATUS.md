@@ -1,6 +1,6 @@
 # Project status
 
-_Last updated: 2026-11-01, smoke fix (Tavern, Farm, Alchemist)._
+_Last updated: 2026-11-01, smoke fix and audit (all buildings)._
 
 ## Shipped to `main` (merged)
 
@@ -22,7 +22,7 @@ before claiming what is live.
 
 | Branch | What |
 | --- | --- |
-| `claude/level-up-rpg-review-sk02af` (PR #13) | **Smoke fix** for the Tavern, Farm and Alchemist: the static painted plumes are erased (mouth stubs retouched; all other pixels unchanged) and animated smoke rises from each chimney mouth, with per-building smoke styles (`SMOKE_STYLES`) |
+| `claude/level-up-rpg-review-sk02af` (PR #13) | **Smoke fix** for the Tavern, Farm, Alchemist and Sawmill: the static painted plumes are erased (mouth stubs retouched; all other pixels unchanged) and animated smoke rises from each chimney opening, with per-building smoke styles (`SMOKE_STYLES`); blacksmith emitter moved into its opening; smoke audit test for every building |
 
 PR #12 (painted Tavern and Alchemist's Workshop, per-building sparkle colours) is merged.
 
@@ -51,7 +51,7 @@ paintings. They stay hidden until their `_r0` arrives.
   on load.
 - **Environment:** painted trees, procedural grass and props, fireflies, spores, glows,
   butterflies, crystal sparkles and drifting cloud shadows.
-- **Quality:** 209 tests. The validator has no errors; its
+- **Quality:** 212 tests. The validator has no errors; its
   warnings are four trees with straight sprite-sheet cut edges and the missing optional grass
   tiles. Performance on the Pixel 7 profile is about 24–26 draw calls per frame for the usual
   starter village; a six-building village (mage tower, alchemist, blacksmith, cottage, farm,
@@ -68,8 +68,6 @@ paintings. They stay hidden until their `_r0` arrives.
 - Oak, enchanted, fir and spruce trees have truncated right edges from sprite-sheet slicing.
 - Grass, ground details, rocks, ruins, the cliff, paths, villagers and decorations are still
   procedural or missing. They need painted art (see `docs/ART_BRIEFS.md`).
-- The **sawmill** still has a painted smoke plume with the animated puffs on top (double smoke).
-  It can be fixed the same way as the farm (`--erase` + `--inpaint`).
 - The Tavern's door faces front-right at r0 (kept as painted for the top-left light), and its
   base is a little flatter than 2:1.
 - The `src/modules/` gameplay modules (quests, AI coaching, rewards) are scaffolding only

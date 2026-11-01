@@ -52,9 +52,6 @@ procedural building geometry is gone.
 - **Clipped edges in the source crop.** The farm's right-hand bush and the bush beside the
   sawmill's timber pile end in a straight vertical cut (37 and 29 source px, about 9 and 7 world
   px). It's small, but visible up close.
-- **Smoke:** the sawmill's smoke plume is still painted, with animated puffs rising over it
-  (double smoke; it can be fixed like the farm). The farm's painted plume was removed (see
-  "Painted smoke removed" below).
 - **Blacksmith orientation.** It was painted with its long forge front facing front-right (the
   1×2 view), so it is mirrored to fit the 2×1 footprint. The light then comes slightly from the
   right instead of the left. Its plot is nearly square (1 : 1.2), so like the sawmill the grass
@@ -67,11 +64,11 @@ procedural building geometry is gone.
   building, and mirroring would flip it. Gameplay doesn't depend on which face the door is on;
   turning the Tavern (r1/r3) shows the door front-left. Its base is painted slightly flatter than
   2:1, so the grass at the side corners sits about 9 world px below the footprint's side corners.
-- **Painted smoke removed (Tavern, Farm, Alchemist).** These paintings came with a smoke plume
+- **Painted smoke removed (Tavern, Farm, Alchemist, Sawmill).** These paintings came with a smoke plume
   baked in. A painted plume can't move, so in game it read as frozen smoke (or, on the farm, as
-  a second plume under the animated one). The importer erases the plume after alignment
+  a second plume under the animated one, on the farm and sawmill). The importer erases the plume after alignment
   (`--erase`, output px) and retouches the pale smoke stub left inside the chimney mouth from
-  the dark mouth beside it (`--inpaint`, 36–40 px). On the alchemist, the smoke that hid the
+  the dark mouth beside it (`--inpaint`, 18–40 px). On the alchemist, the smoke that hid the
   cap's back rim is trimmed to the rim's peaked outline. Every other pixel is exactly as before
   (tested). Each building then emits its own smoke style from the chimney mouth
   (`SMOKE_STYLES` in `src/game/effectPalette.ts`): a slightly denser column for the Tavern,
@@ -80,6 +77,13 @@ procedural building geometry is gone.
   roofs.
 
   ![Farm, Alchemist and Tavern chimney smoke](screenshots/smoke-fix.gif)
+- **Smoke audit.** Every chimney (cottage, farm, sawmill, blacksmith, tavern, alchemist) emits
+  animated smoke from the middle of its dark opening with open sky above, and none has a
+  painted plume left (`tests/buildingArt.test.ts`, "smoke audit"). The mage tower has no
+  chimney. The sawmill's emitter moved 4 px up into the opening and the blacksmith's 7 px right
+  and 4 px up (it was on the cap's front stones).
+
+  ![Every chimney in game](screenshots/smoke-audit.gif)
 - **Similar houses.** The farmhouse and the cottage share a red-roof, stone-and-timber style,
   so they're easy to mix up at a glance. The farm's field and fence tell them apart.
 
