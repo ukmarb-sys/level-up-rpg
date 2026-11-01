@@ -1,6 +1,6 @@
 # Project status
 
-_Last updated: 2026-11-01, Ancient Temple session._
+_Last updated: 2026-11-01, Building Catalog and Developer Test Mode session._
 
 ## Shipped to `main` (merged)
 
@@ -22,9 +22,9 @@ before claiming what is live.
 
 | Branch | What |
 | --- | --- |
-| `claude/level-up-rpg-review-sk02af` | Painted **Ancient Temple** (`temple_r0`, 3×3, generator haze cleared by `scripts/cutout-temple.py`, ice-blue crystal halo, cyan rune sparkles and motes, brazier flicker; per-building orb tint) |
+| `claude/level-up-rpg-review-sk02af` | **Building Catalog** (all ten buildings in a scrollable two-column sheet with costs, prerequisites and status) and **Developer Test Mode** (isolated test island, resource grant, unlock-all, reset; see [DEVELOPER_TEST_MODE.md](DEVELOPER_TEST_MODE.md)) |
 
-PR #14 (painted Marketplace) is merged.
+PR #15 (painted Ancient Temple) is merged.
 
 **Still missing for the first island:** the Castle Keep
 paintings. They stay hidden until their `_r0` arrives.
@@ -43,15 +43,19 @@ paintings. They stay hidden until their `_r0` arrives.
   | Tavern | painted | 2×2 | tier 2, +10% all production, needs a Cottage and a Farm, one per realm |
   | Marketplace | painted | 3×2 | tier 3, +2 wood and +2 stone/min, needs a Tavern |
   | Alchemist's Workshop | painted | 2×2 | tier 3, +4 magic/min, needs a Mage Tower |
-  | Ancient Temple | painted (open PR) | 3×3 | tier 4, +25% magic, needs the Alchemist, one per realm |
+  | Ancient Temple | painted | 3×3 | tier 4, +25% magic, needs the Alchemist, one per realm |
   | Castle Keep | no art yet (hidden) | 4×4 | tier 5, +15% all production, needs the Marketplace, Temple and Blacksmith, one per realm |
 
+- **Build menu:** a **Build** button opens the catalog: all ten buildings in a two-column grid
+  with costs, prerequisites and status (Available, Locked, Insufficient resources, Built,
+  Maximum reached, Artwork coming soon). Tapping a card that can't be placed explains why.
 - **Economy:** wood, stone and magic. Starting resources 200 / 150 / 50. Demolish refunds 50%.
 - **Saves:** format v1 in localStorage (`levelup-rpg:save`). Unknown building types are dropped
-  on load.
+  on load. Developer Test Mode keeps its test island under `levelup-rpg:test-save` and never
+  writes the village save.
 - **Environment:** painted trees, procedural grass and props, fireflies, spores, glows,
   butterflies, crystal sparkles and drifting cloud shadows.
-- **Quality:** 215 tests. The validator has no errors; its
+- **Quality:** 242 tests. The validator has no errors; its
   warnings are four trees with straight sprite-sheet cut edges and the missing optional grass
   tiles. Performance on the Pixel 7 profile is about 24–26 draw calls per frame for the usual
   starter village; a six-building village (mage tower, alchemist, blacksmith, cottage, farm,

@@ -4,7 +4,7 @@
 
 1. Read [CLAUDE.md](../CLAUDE.md) (rules, commands, layout), then
    [PROJECT_STATUS.md](PROJECT_STATUS.md) and [VISUAL_ROADMAP.md](VISUAL_ROADMAP.md).
-2. Check what has been merged since: the **Ancient Temple** PR (branch
+2. Check what has been merged since: the **Building Catalog + Developer Test Mode** PR (branch
    `claude/level-up-rpg-review-sk02af`) was open and unmerged at the end of the last session.
    ```bash
    git fetch origin && git log --oneline -5 origin/main
@@ -49,7 +49,9 @@ them.
 
 ## 3. Open questions for the owner
 
-- Merge the Ancient Temple PR? The Marketplace (merged) is painted at about half the village scale; keep it or commission a repaint? New building art must pass the smoke audit test in `tests/buildingArt.test.ts`.
+- Merge the Building Catalog + Developer Test Mode PR? Test it on the live site with
+  `?devtools=enable` (see `docs/DEVELOPER_TEST_MODE.md`).
+- The Ancient Temple is merged. The Marketplace (merged) is painted at about half the village scale; keep it or commission a repaint? New building art must pass the smoke audit test in `tests/buildingArt.test.ts`.
 - **Owner's priorities (2026-11-01):** finish beautiful, consistent **front-facing (r0)** art for
   all ten first-island buildings first. The Tavern, Alchemist, Marketplace and Ancient Temple are
   done; only the **Castle Keep** (4×4) remains. r1–r3 rotations come later.
@@ -58,11 +60,14 @@ them.
 
 ## 4. Gotchas
 
+- Playwright: catalog cards that can't be placed carry `aria-disabled`; tap them with
+  `{ force: true }` (they show their explanation). Match cards by `.cat-card[data-type="…"]`.
+- Kill the preview server by its node process, e.g.
+  `ps -eo pid,comm,args | awk '$2=="node" && /vite preview/ {print $1}' | xargs -r kill`;
+  `pkill -f` and `pgrep -f` match your own shell.
+
 - Headless Chromium reports the **low** quality tier, so only one cloud and fewer particles
   appear in screenshots.
-- Playwright won't tap `aria-disabled` build cards; use `{ force: true }` when testing locked
-  cards. Match cards by `.build-card__name`, because the text "Needs Sawmill" also contains
-  "Sawmill".
 - `docs/ASSET_SPEC.md` tables are test-enforced. After manifest changes, regenerate them with
   `npm run art:table` and replace the block between the `asset-tables` markers.
 - Shell `pkill -f` can match your own shell; kill the preview server by its port's PID instead.

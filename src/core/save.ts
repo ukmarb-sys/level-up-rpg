@@ -8,6 +8,7 @@ import { createInitialState, STATE_VERSION } from './game';
 import { emptyResources, RESOURCE_TYPES } from './resources';
 import type { Building, GameState, Resources, Rotation } from './types';
 
+/** The player's village. Developer Test Mode never reads or writes this key (see testMode.ts). */
 export const SAVE_KEY = 'levelup-rpg:save';
 
 export type KeyValueStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -25,38 +26,38 @@ export function defaultStorage(): KeyValueStorage | undefined {
   }
 }
 
-export function saveGame(state: GameState, storage = defaultStorage(), now = Date.now()): boolean {
+export function saveGame(state: GameState, storage = defaultStorage(), now = Date.now(), key = SAVE_KEY): boolean {
   if (!storage) return false;
   try {
     const envelope: SaveEnvelope = { savedAt: now, state };
-    storage.setItem(SAVE_KEY, JSON.stringify(envelope));
+    storage.setItem(key, JSON.stringify(envelope));
     return true;
   } catch {
     return false; // quota exceeded or storage unavailable
   }
 }
 
-export function hasSave(storage = defaultStorage()): boolean {
+export function hasSave(storage = defaultStorage(), key = SAVE_KEY): boolean {
   try {
-    return !!storage?.getItem(SAVE_KEY);
+    return !!storage?.getItem(key);
   } catch {
     return false;
   }
 }
 
-export function clearSave(storage = defaultStorage()): void {
+export function clearSave(storage = defaultStorage(), key = SAVE_KEY): void {
   try {
-    storage?.removeItem(SAVE_KEY);
+    storage?.removeItem(key);
   } catch {
     /* ignore */
   }
 }
 
 /** Loads and validates a save. Returns null when absent or unreadable. */
-export function loadGame(storage = defaultStorage()): GameState | null {
+export function loadGame(storage = defaultStorage(), key = SAVE_KEY): GameState | null {
   let raw: string | null = null;
   try {
-    raw = storage?.getItem(SAVE_KEY) ?? null;
+    raw = storage?.getItem(key) ?? null;
   } catch {
     return null;
   }

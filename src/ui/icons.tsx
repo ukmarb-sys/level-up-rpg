@@ -119,7 +119,7 @@ export function Glyph({
   name,
   size = 22,
 }: {
-  name: 'rotate' | 'check' | 'close' | 'move' | 'trash' | 'menu' | 'plus' | 'minus' | 'chevronUp' | 'chevronDown' | 'lock';
+  name: 'rotate' | 'check' | 'close' | 'move' | 'trash' | 'menu' | 'plus' | 'minus' | 'chevronUp' | 'chevronDown' | 'lock' | 'gear' | 'flask';
   size?: number;
 }) {
   const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true } as const;
@@ -146,5 +146,9 @@ export function Glyph({
       return <svg {...p}><path d="m6 9 6 6 6-6" /></svg>;
     case 'lock':
       return <svg {...p}><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>;
+    case 'gear':
+      return <svg {...p}><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1" /></svg>;
+    case 'flask':
+      return <svg {...p}><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3" /><path d="M7.5 15h9" /></svg>;
   }
 }

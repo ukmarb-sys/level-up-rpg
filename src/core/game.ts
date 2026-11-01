@@ -2,7 +2,7 @@
  * Pure state transitions for the city. Every action returns a new GameState and never
  * mutates its input, which keeps the logic easy to test, save and replay.
  */
-import { availability, BUILDINGS, DEMOLISH_REFUND, MAP_SIZE, STARTING_RESOURCES } from './buildings';
+import { availability, BUILDINGS, DEMOLISH_REFUND, MAP_SIZE, STARTING_RESOURCES, type RuleOptions } from './buildings';
 import { checkPlacement } from './grid';
 import { add, canAfford, emptyResources, RESOURCE_TYPES, scale, subtract } from './resources';
 import type { ActionResult, BuildingType, GameState, GridPos, Resources, Rotation } from './types';
@@ -34,9 +34,10 @@ export function placeBuilding(
   pos: GridPos,
   rotation: Rotation,
   now = Date.now(),
+  rules: RuleOptions = {},
 ): ActionResult {
   const cost = BUILDINGS[type].cost;
-  const avail = availability(type, state.buildings);
+  const avail = availability(type, state.buildings, rules);
   if (!avail.ok) return fail(state, avail.reason);
   if (!canAfford(state.resources, cost)) return fail(state, 'insufficient-resources');
   const check = checkPlacement(type, pos, rotation, state.buildings, state.mapSize);

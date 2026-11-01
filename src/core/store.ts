@@ -3,13 +3,13 @@
  * It wraps the pure functions in game.ts with interaction state (placing, moving,
  * selection), autosave and events. React reads it via useSyncExternalStore.
  */
-import { availability, BUILDINGS } from './buildings';
+import { availability, BUILDINGS, type RuleOptions } from './buildings';
 import { EventBus } from './events';
 import { checkPlacement, buildingAt, findNearestFree, clampToMap, nextRotation } from './grid';
 import { createInitialState, demolishBuilding, placeBuilding, relocateBuilding, tick } from './game';
-import { canAfford } from './resources';
-import { loadGame, saveGame, type KeyValueStorage, defaultStorage } from './save';
-import type { BuildingType, FailureReason, GameState, GridPos, Rotation } from './types';
+import { add, canAfford } from './resources';
+import { loadGame, saveGame, SAVE_KEY, type KeyValueStorage, defaultStorage } from './save';
+import type { BuildingType, FailureReason, GameState, GridPos, Resources, Rotation } from './types';
 
 export type Mode =
   | { kind: 'idle' }
@@ -40,6 +40,13 @@ export interface StoreOptions {
   storage?: KeyValueStorage;
   autosaveMs?: number;
   now?: () => number;
+  /** Storage key for this realm (default: the player's village, SAVE_KEY). */
+  saveKey?: string;
+  /**
+   * Developer Test Mode store: may grant resources and bypass prerequisites. Must be paired with
+   * a saveKey other than SAVE_KEY, so a test store can never touch the player's village.
+   */
+  testMode?: boolean;
 }
 
 export class GameStore {
@@ -54,8 +61,14 @@ export class GameStore {
   private readonly storage?: KeyValueStorage;
   private readonly autosaveMs: number;
   private readonly now: () => number;
+  readonly saveKey: string;
+  readonly testMode: boolean;
+  private rules: RuleOptions = {};
 
   constructor(initial?: GameState, opts: StoreOptions = {}) {
+    this.saveKey = opts.saveKey ?? SAVE_KEY;
+    this.testMode = opts.testMode ?? false;
+    if (this.testMode && this.saveKey === SAVE_KEY) throw new Error('A test-mode store must not use the village save key');
     this.storage = opts.storage ?? defaultStorage();
     this.autosaveMs = opts.autosaveMs ?? 600;
     this.now = opts.now ?? Date.now;
@@ -67,7 +80,7 @@ export class GameStore {
   /** Restores the last autosave, or starts a fresh realm. */
   static restore(opts: StoreOptions = {}): GameStore {
     const storage = opts.storage ?? defaultStorage();
-    const loaded = loadGame(storage);
+    const loaded = loadGame(storage, opts.saveKey ?? SAVE_KEY);
     const store = new GameStore(loaded ?? undefined, { ...opts, storage });
     if (loaded) store.events.emit('game:loaded', { state: loaded });
     return store;
@@ -84,6 +97,26 @@ export class GameStore {
   }
   get mode(): Mode {
     return this.snapshot.mode;
+  }
+  /** Rule overrides in force (always empty outside Developer Test Mode). */
+  get ruleOptions(): RuleOptions {
+    return this.rules;
+  }
+
+  // --- developer test mode (test stores only) ----------------------------------------------
+  /** Test mode only: bypass prerequisites or not. Ignored (returns false) on a normal store. */
+  setRules(rules: RuleOptions): boolean {
+    if (!this.testMode) return false;
+    this.rules = { ...rules };
+    this.set({});
+    return true;
+  }
+
+  /** Test mode only: adds resources to the test island. Refused (returns false) on a normal store. */
+  grantResources(amount: Resources): boolean {
+    if (!this.testMode) return false;
+    this.set({ state: { ...this.state, resources: add(this.state.resources, amount), updatedAt: this.now() } }, true);
+    return true;
   }
 
   private set(patch: Partial<Snapshot>, persist = false) {
@@ -117,7 +150,7 @@ export class GameStore {
   // --- interactions ----------------------------------------------------------------------
   startPlacing(type: BuildingType) {
     const { state } = this;
-    const avail = availability(type, state.buildings);
+    const avail = availability(type, state.buildings, this.rules);
     if (!avail.ok) {
       const text =
         avail.reason === 'locked'
@@ -198,7 +231,7 @@ export class GameStore {
   confirm() {
     const { mode, state } = this.snapshot;
     if (mode.kind === 'placing') {
-      const res = placeBuilding(state, mode.type, mode.pos, mode.rotation, this.now());
+      const res = placeBuilding(state, mode.type, mode.pos, mode.rotation, this.now(), this.rules);
       if (!res.ok) return this.failed(res.reason);
       const building = res.state.buildings[res.state.buildings.length - 1];
       // Stay in placing mode for quick repeated building when still affordable.
@@ -260,7 +293,7 @@ export class GameStore {
     if (this.saveTimer) clearTimeout(this.saveTimer);
     this.saveTimer = null;
     const at = this.now();
-    const ok = saveGame(this.state, this.storage, at);
+    const ok = saveGame(this.state, this.storage, at, this.saveKey);
     if (ok) this.events.emit('game:saved', { at });
     return ok;
   }
