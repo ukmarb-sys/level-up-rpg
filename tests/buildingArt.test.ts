@@ -19,6 +19,8 @@ import { removeSliceFragments, translucentBodyShare, type Raster } from '../scri
 const root = new URL('..', import.meta.url).pathname;
 const art = join(root, 'src/assets/art');
 const meta = JSON.parse(readFileSync(join(art, 'art-meta.json'), 'utf8')) as ArtMeta;
+/** Generous per-test budget for tests that re-import a full-size painting (CI runners vary). */
+const REIMPORT_TIMEOUT = 30_000;
 const A = (r: Raster) => (x: number, y: number) => r.data[(y * r.width + x) * 4 + 3];
 
 type Rect = { x0: number; y0: number; x1: number; y1: number };
@@ -280,14 +282,16 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
     expect(entryOf('temple').geometry.canvas).toEqual({ width: 832, height: 768 });
   });
 
-  it('is reproducible from the raw sources with the documented settings', () => {
-    for (const c of CASES) {
+  // One test per building: each re-imports a full-size painting (the temple alone takes about a
+  // second), so a single loop over all of them ran into Vitest's 5 s default timeout on CI.
+  for (const c of CASES) {
+    it(`is reproducible from the raw source with the documented settings: ${c.type}`, { timeout: REIMPORT_TIMEOUT }, () => {
       expect(existsSync(join(root, 'art-source/raw/buildings', c.raw))).toBe(true);
       const res = importObject(decodeImage(readFileSync(join(root, 'art-source/raw/buildings', c.raw))), manifestByKey.get(`bld-${c.type}-r0`)!, c.opts);
       expect(Buffer.from(res.raster.data).equals(Buffer.from(master(c.file).data)), c.file).toBe(true);
       expect(res.meta?.effects, c.file).toEqual(meta[c.file].effects);
-    }
-  });
+    });
+  }
 
   it('keeps the artwork within the footprint horizontally (no overlap of side neighbours)', () => {
     for (const c of CASES) {
@@ -406,7 +410,7 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
       expect(meta[f].top!.y).toBeGreaterThan(c.y - 45);
     });
 
-    it(`changes only the ${type} smoke pixels: every other pixel is exactly as imported before`, () => {
+    it(`changes only the ${type} smoke pixels: every other pixel is exactly as imported before`, { timeout: REIMPORT_TIMEOUT }, () => {
       const raw = decodeImage(readFileSync(join(root, `art-source/raw/buildings/${type}.png`)));
       const opts = CASES.find((k) => k.type === type)!.opts;
       const plain = importObject(raw, manifestByKey.get(`bld-${type}-r0`)!, { ...opts, erase: undefined, inpaint: undefined }).raster;
