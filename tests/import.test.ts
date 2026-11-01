@@ -211,5 +211,5 @@ it('the CLI resolves short and full asset names', () => {
   expect(findEntry('buildings/farm/farm_r1.png')?.key).toBe('bld-farm-r1');
   expect(findEntry('grass_2')?.key).toBe('terrain-grass-2');
   expect(findEntry('tree_pine')?.key).toBe('prop-treePine');
-  expect(findEntry('castle_r0')).toBeUndefined();
+  expect(findEntry('dragonLair_r0')).toBeUndefined();
 });

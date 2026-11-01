@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS, STARTING_RESOURCES } from '../src/core/buildings';
+import { BUILDINGS, STARTER_BUILDINGS, STARTING_RESOURCES } from '../src/core/buildings';
 import { createInitialState, placeBuilding, productionRate, tick } from '../src/core/game';
 import { canAfford, shortfall } from '../src/core/resources';
 
@@ -16,8 +16,8 @@ describe('starting resources and costs', () => {
     expect(BUILDINGS.mageTower.cost).toEqual({ wood: 50, stone: 80, magic: 30 });
   });
 
-  it('every building is affordable from a fresh start', () => {
-    for (const def of Object.values(BUILDINGS)) expect(canAfford(STARTING_RESOURCES, def.cost)).toBe(true);
+  it('every starter building is affordable from a fresh start', () => {
+    for (const t of STARTER_BUILDINGS) expect(canAfford(STARTING_RESOURCES, BUILDINGS[t].cost), t).toBe(true);
   });
 
   it('deducts the exact cost when building', () => {

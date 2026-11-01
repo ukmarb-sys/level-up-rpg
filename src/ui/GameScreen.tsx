@@ -63,7 +63,7 @@ export function GameScreen({ store, onExit }: Props) {
 
       <footer className="hud-bottom">
         {mode.kind === 'idle' ? (
-          <BuildMenu resources={snap.state.resources} onPick={(t) => store.startPlacing(t)} />
+          <BuildMenu resources={snap.state.resources} buildings={snap.state.buildings} onPick={(t) => store.startPlacing(t)} />
         ) : (
           <ActionBar
             mode={mode}

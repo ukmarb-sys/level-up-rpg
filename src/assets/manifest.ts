@@ -28,9 +28,15 @@ export interface EffectPoints {
   windows?: Pt[];
   /** Saw blade centre: sawdust puffs (sprites) / spinning blade (procedural). */
   wheel?: Pt | null;
+  /** Magical crystals: soft pulsing glints with motes drifting upwards. */
+  sparkles?: Pt[];
+  /** Flowers and fields: a few butterflies flutter around these points. */
+  butterflies?: Pt[];
 }
 
-export const EFFECT_NAMES = ['chimney', 'orb', 'windows', 'wheel'] as const;
+export const EFFECT_NAMES = ['chimney', 'orb', 'windows', 'wheel', 'sparkles', 'butterflies'] as const;
+/** Effects that hold a list of points (the others hold one point or null). */
+export const LIST_EFFECTS = ['windows', 'sparkles', 'butterflies'] as const;
 
 export interface AssetEntry {
   /** Phaser texture key. */
@@ -64,6 +70,12 @@ export const BUILDING_CANVAS_HEIGHT: Record<BuildingType, number> = {
   farm: 512,
   sawmill: 448,
   mageTower: 1024,
+  blacksmith: 448,
+  tavern: 640,
+  marketplace: 512,
+  alchemist: 640,
+  temple: 768,
+  castle: 1280,
 };
 
 const BUILDING_BRIEF: Record<BuildingType, string> = {
@@ -71,6 +83,12 @@ const BUILDING_BRIEF: Record<BuildingType, string> = {
   farm: 'Fenced moonwheat field with a small red barn',
   sawmill: 'Timber sawmill with saw blade and log pile',
   mageTower: 'Slender stone mage tower, violet spire, floating orb',
+  blacksmith: 'Stone forge with a glowing hearth, anvil, bellows and a tall chimney',
+  tavern: 'Two-storey timber tavern with a hanging sign, warm windows and benches',
+  marketplace: 'Market square with striped awnings, stalls, crates and a small well',
+  alchemist: 'Alchemist workshop with a copper still, green-glass alembics and herb garden',
+  temple: 'Ancient pale-stone temple with columns, mossy steps and a glowing altar',
+  castle: 'Stone castle keep with corner towers, banners and a gatehouse',
 };
 
 export const buildingKey = (type: BuildingType, rotation: Rotation) => `bld-${type}-r${rotation}`;
@@ -118,6 +136,8 @@ export function referencePoints(type: BuildingType, rotation: Rotation, g: Sprit
   if (a.orb) effects.orb = conv(a.orb);
   if (a.windows) effects.windows = a.windows.map(conv);
   if (a.wheel) effects.wheel = conv(a.wheel);
+  if (a.sparkles) effects.sparkles = a.sparkles.map(conv);
+  if (a.butterflies) effects.butterflies = a.butterflies.map(conv);
   return { top: conv(a.top), effects };
 }
 
@@ -143,7 +163,8 @@ function buildingEntries(): AssetEntry[] {
         ...referencePoints(type, rotation, geometry),
         building: { type, rotation },
         // r0 is enough for every rotation (see resolve.ts); r1-r3 add true side/back views.
-        required: rotation === 0,
+        // Painted-only buildings are optional: the game simply doesn't offer them yet.
+        required: rotation === 0 && !BUILDINGS[type].needsArt,
         description: `${BUILDING_BRIEF[type]} — rotation ${rotation} (${w}x${d} tiles)`,
       });
       out.push({

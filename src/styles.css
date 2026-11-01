@@ -475,9 +475,21 @@ button {
   font-size: 13px;
 }
 .build-menu__cards {
+  /* four cards per view; more scroll sideways (the catalog grows as painted art arrives) */
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - 15px) / 4);
   gap: 5px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.build-menu__cards::-webkit-scrollbar {
+  display: none;
+}
+.build-menu__cards > * {
+  scroll-snap-align: start;
 }
 .build-card {
   position: relative;
@@ -535,6 +547,20 @@ button {
 .build-card--locked {
   opacity: 0.5;
   filter: grayscale(0.6);
+}
+.build-card__note svg {
+  flex: none;
+}
+.build-card__note {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--text-dim);
 }
 
 .action-bar {

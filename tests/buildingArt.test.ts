@@ -26,13 +26,22 @@ const CASES = [
     type: 'farm' as BuildingType,
     raw: 'farm.png',
     file: 'buildings/farm/farm_r0',
-    opts: {},
+    opts: {
+      effects: {
+        chimney: { x: 510, y: 122 },
+        windows: [{ x: 437, y: 219 }, { x: 562, y: 224 }, { x: 404, y: 286 }, { x: 547, y: 299 }, { x: 485, y: 296 }, { x: 356, y: 390 }],
+        butterflies: [{ x: 203, y: 367 }, { x: 300, y: 330 }, { x: 585, y: 330 }, { x: 413, y: 460 }],
+      },
+    },
   },
   {
     type: 'sawmill' as BuildingType,
     raw: 'sawmill.png',
     file: 'buildings/sawmill/sawmill_r0',
-    opts: { effectsSource: { wheel: { x: 438, y: 505 } } },
+    opts: {
+      effectsSource: { wheel: { x: 438, y: 505 } },
+      effects: { chimney: { x: 278, y: 155 }, windows: [{ x: 215, y: 203 }, { x: 339, y: 236 }, { x: 178, y: 281 }, { x: 365, y: 287 }] },
+    },
   },
   {
     type: 'mageTower' as BuildingType,
@@ -48,6 +57,7 @@ const CASES = [
           { x: 184, y: 854 },
           { x: 302, y: 880 },
         ],
+        sparkles: [{ x: 129, y: 842 }, { x: 447, y: 876 }, { x: 414, y: 755 }, { x: 244, y: 870 }, { x: 368, y: 880 }],
       },
     },
   },
@@ -134,7 +144,17 @@ describe('painted farm, sawmill and mage tower', () => {
       expect(tower.data[i] > 200 && tower.data[i + 1] > 110 && tower.data[i + 2] < 160, `${w.x},${w.y}`).toBe(true);
     }
     expect(fx.orb!.y).toBeLessThan(500); // the floating crystal at the top of the spire
-    expect(meta['buildings/farm/farm_r0'].effects ?? {}).toEqual({});
+    expect(fx.sparkles).toHaveLength(5);
+    for (const p of fx.sparkles!) expect(A(tower)(p.x, p.y), `sparkle ${p.x},${p.y}`).toBe(255);
+    // farm and sawmill: chimney smoke from the painted chimney tops, lit windows, farm butterflies
+    for (const f of ['buildings/farm/farm_r0', 'buildings/sawmill/sawmill_r0']) {
+      const r = master(f);
+      const e = meta[f].effects!;
+      expect(e.chimney, f).toBeTruthy();
+      expect(A(r)(e.chimney!.x, e.chimney!.y + 4), f).toBe(255); // smoke starts on the chimney
+      expect(e.windows!.length, f).toBeGreaterThanOrEqual(4);
+    }
+    expect(meta['buildings/farm/farm_r0'].effects!.butterflies).toHaveLength(4);
   });
 
   it('uses the painted r0 for every rotation until directional art exists (mirrored where needed)', () => {

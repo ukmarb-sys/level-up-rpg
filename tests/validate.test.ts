@@ -58,7 +58,7 @@ describe('asset validation', () => {
   });
 
   it('rejects unknown files and misspelled names', () => {
-    const report = validateArt([art('buildings/castle/castle_r0.png', alignedObjectPng('bld-cottage-r0')), art('buildings/cottage/Cottage-R0.png', alignedObjectPng('bld-cottage-r0'))]);
+    const report = validateArt([art('buildings/dragonLair/dragonLair_r0.png', alignedObjectPng('bld-cottage-r0')), art('buildings/cottage/Cottage-R0.png', alignedObjectPng('bld-cottage-r0'))]);
     expect(report.issues.filter((i) => i.message.includes('Not in the asset manifest'))).toHaveLength(2);
   });
 

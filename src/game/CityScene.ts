@@ -6,7 +6,7 @@ import Phaser from 'phaser';
 import { footprintSize } from '../core/grid';
 import type { GameStore, Snapshot } from '../core/store';
 import type { Building, BuildingType, GridPos, Rotation } from '../core/types';
-import { drawBuilding, flat, makeMoteTexture, type ArtAnchors } from './art';
+import { drawBuilding, flat, makeButterflyTexture, makeMoteTexture, type ArtAnchors } from './art';
 import { buildingChoice, effectPoint, lodTextureKey, makeSprite, queueArt, type LoadedArt } from './assets';
 import { detectQuality } from './environment/device';
 import { EnvironmentLayer } from './environment/EnvironmentLayer';
@@ -107,6 +107,7 @@ export class CityScene extends Phaser.Scene {
 
   create() {
     makeMoteTexture(this);
+    makeButterflyTexture(this);
     this.input.addPointer(1);
     this.environment = new EnvironmentLayer(this, {
       mapSize: this.store.state.mapSize,
@@ -318,6 +319,8 @@ export class CityScene extends Phaser.Scene {
         chimney: fx.chimney ? at(fx.chimney) : undefined,
         orb: fx.orb ? at(fx.orb) : undefined,
         windows: fx.windows?.map(at),
+        sparkles: fx.sparkles?.map(at),
+        butterflies: fx.butterflies?.map(at),
         wheel: fx.wheel ? at(fx.wheel) : undefined,
         // Measured top of the painted pixels (art-meta.json) or the manifest reference.
         top: entry.top ? at(entry.top) : { x: centre.x, y: img.getTopCenter().y + 6 },
@@ -456,7 +459,13 @@ export class CityScene extends Phaser.Scene {
       this.tweens.add({ targets: wheel, angle: 360, duration: 1800, repeat: -1 });
     }
 
-    if (a.orb) {
+    if (a.orb && a.sprite) {
+      // The painted crystal already glows: a soft breathing halo only, no bobbing light.
+      const halo = glow(a.orb, 0x8f6bff, 1.5);
+      halo.setAlpha(0.5);
+      this.tweens.killTweensOf(halo);
+      this.tweens.add({ targets: halo, alpha: { from: 0.25, to: 0.6 }, duration: 1800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    } else if (a.orb) {
       const halo = glow(a.orb, 0x8f6bff, 2.6);
       const orb = glow(a.orb, 0xe4dcff, 1.0);
       this.tweens.add({ targets: [orb, halo], y: a.orb.y - 8, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
@@ -472,6 +481,74 @@ export class CityScene extends Phaser.Scene {
           onUpdate: () => rune.setPosition(a.orb!.x + Math.cos(orbit.t) * 18, a.orb!.y + 30 + Math.sin(orbit.t) * 7),
         });
         cleanups.push(() => this.tweens.killTweensOf(orbit));
+      }
+    }
+    const motion = this.environment?.quality.animate ?? true;
+    const low = this.environment?.quality.tier === 'low';
+
+    if (a.sparkles?.length) {
+      // Crystals: a soft glint on each, breathing out of step, and motes drifting up from them.
+      a.sparkles.forEach((p, i) => {
+        const g = this.add.image(p.x, p.y, 'mote').setTint(0xc9a6ff).setScale(0.55).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.35);
+        c.add(g);
+        if (motion) this.tweens.add({ targets: g, alpha: { from: 0.15, to: 0.6 }, duration: 1300 + i * 270, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: i * 350 });
+      });
+      if (motion) {
+        const pts = a.sparkles;
+        const timer = this.time.addEvent({
+          delay: low ? 900 : 480,
+          loop: true,
+          callback: () => {
+            const p = pts[Math.floor(Math.random() * pts.length)];
+            const m = this.add
+              .image(p.x + (Math.random() - 0.5) * 4, p.y, 'mote')
+              .setTint(Math.random() < 0.5 ? 0xd9c2ff : 0xa98bff)
+              .setScale(0.16 + Math.random() * 0.1)
+              .setBlendMode(Phaser.BlendModes.ADD);
+            c.add(m);
+            this.tweens.add({
+              targets: m,
+              y: p.y - 14 - Math.random() * 12,
+              x: m.x + (Math.random() - 0.5) * 8,
+              alpha: { from: 0.95, to: 0 },
+              duration: 1500 + Math.random() * 700,
+              ease: 'Sine.easeOut',
+              onComplete: () => m.destroy(),
+            });
+          },
+        });
+        cleanups.push(() => timer.remove());
+      }
+    }
+
+    if (a.butterflies?.length && motion) {
+      // A couple of butterflies drifting between the flowers and the field.
+      const pts = a.butterflies;
+      const count = low ? 1 : Math.min(3, pts.length);
+      const tints = [0xfff4b0, 0xffffff, 0xcfe4ff];
+      for (let i = 0; i < count; i++) {
+        const start = pts[i % pts.length];
+        const b = this.add.image(start.x, start.y - 6, 'butterfly').setTint(tints[i % tints.length]).setScale(0.22);
+        c.add(b);
+        const flap = this.tweens.add({ targets: b, scaleX: { from: 0.22, to: 0.06 }, duration: 110 + i * 15, yoyo: true, repeat: -1 });
+        const hop = () => {
+          if (!b.active) return;
+          const to = pts[Math.floor(Math.random() * pts.length)];
+          this.tweens.add({
+            targets: b,
+            x: to.x + (Math.random() - 0.5) * 10,
+            y: to.y - 4 - Math.random() * 8,
+            duration: 1800 + Math.random() * 1600,
+            ease: 'Sine.easeInOut',
+            delay: 300 + Math.random() * 900,
+            onComplete: hop,
+          });
+        };
+        hop();
+        cleanups.push(() => {
+          flap.remove();
+          this.tweens.killTweensOf(b);
+        });
       }
     }
     return cleanups;
