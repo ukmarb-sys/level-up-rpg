@@ -213,12 +213,45 @@ const CASES = [
       },
     },
   },
+  {
+    // Real transparency (only the generator's faint halo, cleaned on import). Square 4x4
+    // footprint; the gatehouse and stairs face front-left (r0), so not mirrored. Warm glows on
+    // the lit windows, both gate lanterns and both braziers; embers rise from the braziers.
+    type: 'castle' as BuildingType,
+    raw: 'castle.png',
+    file: 'buildings/castle/castle_r0',
+    opts: {
+      effects: {
+        windows: [
+          { x: 508, y: 512 },
+          { x: 617, y: 522 },
+          { x: 510, y: 600 },
+          { x: 607, y: 607 },
+          { x: 266, y: 762 },
+          { x: 795, y: 765 },
+          { x: 563, y: 853 },
+          { x: 473, y: 693 },
+          { x: 621, y: 707 },
+          { x: 656, y: 741 },
+          { x: 676, y: 590 },
+          { x: 348, y: 887 },
+          { x: 478, y: 926 },
+          { x: 257, y: 957 },
+          { x: 439, y: 1013 },
+        ],
+        sparkles: [
+          { x: 257, y: 957 },
+          { x: 439, y: 1013 },
+        ],
+      },
+    },
+  },
 ];
 
 const entryOf = (type: BuildingType) => applyMeta(manifestByKey.get(`bld-${type}-r0`)!, meta);
 const master = (file: string) => decodeImage(readFileSync(join(art, `${file}.png`)));
 
-describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', () => {
+describe('painted building artwork', () => {
   it('keeps gameplay footprints and costs exactly as before', () => {
     expect([BUILDINGS.farm.width, BUILDINGS.farm.depth]).toEqual([2, 3]);
     expect([BUILDINGS.sawmill.width, BUILDINGS.sawmill.depth]).toEqual([2, 1]);
@@ -236,6 +269,13 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
     expect(BUILDINGS.alchemist.requires).toEqual(['mageTower']);
     expect(BUILDINGS.alchemist.tier).toBe(3);
     expect(BUILDINGS.alchemist.limit).toBeUndefined();
+    expect([BUILDINGS.castle.width, BUILDINGS.castle.depth]).toEqual([4, 4]);
+    expect(BUILDINGS.castle.cost).toEqual({ wood: 300, stone: 300, magic: 150 });
+    expect(BUILDINGS.castle.produces).toEqual({});
+    expect(BUILDINGS.castle.boosts).toEqual({ all: 0.15 });
+    expect(BUILDINGS.castle.requires).toEqual(['marketplace', 'temple', 'blacksmith']);
+    expect(BUILDINGS.castle.limit).toBe(1);
+    expect(BUILDINGS.castle.tier).toBe(5);
     expect([BUILDINGS.temple.width, BUILDINGS.temple.depth]).toEqual([3, 3]);
     expect(BUILDINGS.temple.cost).toEqual({ wood: 0, stone: 180, magic: 120 });
     expect(BUILDINGS.temple.produces).toEqual({});
@@ -280,6 +320,7 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
     expect(entryOf('tavern').geometry.canvas).toEqual({ width: 576, height: 640 });
     expect(entryOf('marketplace').geometry.canvas).toEqual({ width: 704, height: 512 });
     expect(entryOf('temple').geometry.canvas).toEqual({ width: 832, height: 768 });
+    expect(entryOf('castle').geometry.canvas).toEqual({ width: 1088, height: 1280 });
   });
 
   // One test per building: each re-imports a full-size painting (the temple alone takes about a
@@ -561,6 +602,39 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
     expect(Math.abs(low - k.bottom.y)).toBeLessThanOrEqual(2);
   });
 
+  it('fits the castle keep to its 4x4 footprint and lights its windows, lanterns and braziers', () => {
+    const f = 'buildings/castle/castle_r0';
+    const r = master(f);
+    expect(meta[f].import).toMatchObject({ mirrored: false });
+    const k = diamondCorners(entryOf('castle').geometry);
+    let low = 0;
+    let minX = r.width;
+    let maxX = 0;
+    for (let y = 0; y < r.height; y++) {
+      for (let x = 0; x < r.width; x++) {
+        if (A(r)(x, y) <= 128) continue;
+        low = y;
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+      }
+    }
+    // the plinth's front corner on the footprint's front corner, its sides within the diamond
+    expect(Math.abs(low - k.bottom.y)).toBeLessThanOrEqual(2);
+    expect(minX).toBeGreaterThanOrEqual(k.left.x - 8);
+    expect(maxX).toBeLessThanOrEqual(k.right.x + 8);
+    const e = entryOf('castle').effects!;
+    expect(e.windows).toHaveLength(15);
+    for (const w of e.windows!) {
+      const i = (w.y * r.width + w.x) * 4;
+      const [R, G, B] = [r.data[i], r.data[i + 1], r.data[i + 2]];
+      expect(R > 200 && G > 80 && (B < 160 || R + G + B >= 720), `glow ${w.x},${w.y}`).toBe(true);
+    }
+    // embers rise from the two braziers, which also glow
+    expect(e.sparkles).toEqual([{ x: 257, y: 957 }, { x: 439, y: 1013 }]);
+    for (const p of e.sparkles!) expect(e.windows).toContainEqual(p);
+    expect(e.orb ?? null).toBeNull();
+  });
+
   it('smoke audit: every painted chimney smokes from its opening, with no painted plume left', () => {
     const lum = (r: Raster, x: number, y: number) => {
       const i = (y * r.width + x) * 4;
@@ -596,6 +670,8 @@ describe('painted farm, sawmill, mage tower, blacksmith, alchemist and tavern', 
     expect(entryOf('marketplace').effects!.chimney ?? null).toBeNull();
     // the temple's braziers have painted flames and no chimney: no smoke
     expect(entryOf('temple').effects!.chimney ?? null).toBeNull();
+    // the castle has no painted smoke and no chimney opening: no smoke (by request)
+    expect(entryOf('castle').effects!.chimney ?? null).toBeNull();
   });
 
   it('uses the painted r0 for every rotation until directional art exists (mirrored where needed)', () => {

@@ -24,6 +24,8 @@ export const SPARKLE_PALETTES: Partial<Record<BuildingType, SparklePalette>> = {
   alchemist: { glow: 0x2fe07f, motes: [0x9dffc6, 0x34d57a, 0xc8ff8a] },
   // Ancient temple: cool cyan runes and the statues' glowing orbs, pale blue motes.
   temple: { glow: 0x62d6ff, motes: [0xc4f3ff, 0x7cc4ff, 0xe2ecff] },
+  // Castle keep: the two braziers by the stairs breathe warm firelight and loose rising embers.
+  castle: { glow: 0xffa53a, motes: [0xffd27a, 0xff9a3c, 0xffe9b0] },
 };
 
 export function sparklePalette(type: BuildingType): SparklePalette {
