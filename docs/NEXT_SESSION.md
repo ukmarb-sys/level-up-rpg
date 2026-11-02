@@ -4,7 +4,7 @@
 
 1. Read [CLAUDE.md](../CLAUDE.md) (rules, commands, layout), then
    [PROJECT_STATUS.md](PROJECT_STATUS.md) and [VISUAL_ROADMAP.md](VISUAL_ROADMAP.md).
-2. Check what has been merged since: the **Building Catalog + Developer Test Mode** PR (branch
+2. Check what has been merged since: the **Castle Keep** PR (branch
    `claude/level-up-rpg-review-sk02af`) was open and unmerged at the end of the last session.
    ```bash
    git fetch origin && git log --oneline -5 origin/main
@@ -49,12 +49,13 @@ them.
 
 ## 3. Open questions for the owner
 
-- Merge the Building Catalog + Developer Test Mode PR? Test it on the live site with
-  `?devtools=enable` (see `docs/DEVELOPER_TEST_MODE.md`).
+- Merge the Castle Keep PR? With it, all ten first-island buildings are painted. Test placement
+  on the live site with `?devtools=enable` (see `docs/DEVELOPER_TEST_MODE.md`).
+- Next options: r1–r3 rotation paintings, painted grass/paths/decorations, a separate flag layer
+  for moving banners, or resuming gameplay (quests, AI coaching, real-life progression).
 - The Ancient Temple is merged. The Marketplace (merged) is painted at about half the village scale; keep it or commission a repaint? New building art must pass the smoke audit test in `tests/buildingArt.test.ts`.
 - **Owner's priorities (2026-11-01):** finish beautiful, consistent **front-facing (r0)** art for
-  all ten first-island buildings first. The Tavern, Alchemist, Marketplace and Ancient Temple are
-  done; only the **Castle Keep** (4×4) remains. r1–r3 rotations come later.
+  all ten first-island buildings first. All ten are done (the Castle Keep was the last). r1–r3 rotations come later.
 - Gameplay (quests, AI coaching, real-life progression in `src/modules/`) resumes only once the
   village has a cohesive visual identity. **No combat, heroes or story** for now.
 

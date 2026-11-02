@@ -1,6 +1,6 @@
 # Project status
 
-_Last updated: 2026-11-01, Building Catalog and Developer Test Mode session._
+_Last updated: 2026-11-02, Castle Keep session._
 
 ## Shipped to `main` (merged)
 
@@ -22,12 +22,11 @@ before claiming what is live.
 
 | Branch | What |
 | --- | --- |
-| `claude/level-up-rpg-review-sk02af` | **Building Catalog** (all ten buildings in a scrollable two-column sheet with costs, prerequisites and status) and **Developer Test Mode** (isolated test island, resource grant, unlock-all, reset; see [DEVELOPER_TEST_MODE.md](DEVELOPER_TEST_MODE.md)) |
+| `claude/level-up-rpg-review-sk02af` | Painted **Castle Keep** (`castle_r0`, 4×4, window/lantern/brazier glow, rising embers); one-per-realm buildings no longer re-enter placing mode after being built |
 
-PR #15 (painted Ancient Temple) is merged.
+PR #16 (Building Catalog and Developer Test Mode) is merged.
 
-**Still missing for the first island:** the Castle Keep
-paintings. They stay hidden until their `_r0` arrives.
+**All ten first-island buildings now have painted r0 artwork.**
 
 ## Game state
 
@@ -44,7 +43,7 @@ paintings. They stay hidden until their `_r0` arrives.
   | Marketplace | painted | 3×2 | tier 3, +2 wood and +2 stone/min, needs a Tavern |
   | Alchemist's Workshop | painted | 2×2 | tier 3, +4 magic/min, needs a Mage Tower |
   | Ancient Temple | painted | 3×3 | tier 4, +25% magic, needs the Alchemist, one per realm |
-  | Castle Keep | no art yet (hidden) | 4×4 | tier 5, +15% all production, needs the Marketplace, Temple and Blacksmith, one per realm |
+  | Castle Keep | painted (open PR) | 4×4 | tier 5, +15% all production, needs the Marketplace, Temple and Blacksmith, one per realm |
 
 - **Build menu:** a **Build** button opens the catalog: all ten buildings in a two-column grid
   with costs, prerequisites and status (Available, Locked, Insufficient resources, Built,
@@ -55,7 +54,7 @@ paintings. They stay hidden until their `_r0` arrives.
   writes the village save.
 - **Environment:** painted trees, procedural grass and props, fireflies, spores, glows,
   butterflies, crystal sparkles and drifting cloud shadows.
-- **Quality:** 242 tests. The validator has no errors; its
+- **Quality:** 246 tests. The validator has no errors; its
   warnings are four trees with straight sprite-sheet cut edges and the missing optional grass
   tiles. Performance on the Pixel 7 profile is about 24–26 draw calls per frame for the usual
   starter village; a six-building village (mage tower, alchemist, blacksmith, cottage, farm,
@@ -64,7 +63,7 @@ paintings. They stay hidden until their `_r0` arrives.
 
 ## Known limitations
 
-- Only **r0** artwork exists for the farm, sawmill, mage tower, blacksmith, alchemist, tavern, marketplace and temple (and the cottage).
+- Only **r0** artwork exists for the farm, sawmill, mage tower, blacksmith, alchemist, tavern, marketplace, temple and castle (and the cottage).
   r1/r3 are mirrored and r2 reuses r0, so the lighting flips and turned buildings show their
   front instead of their back.
 - Painted grass bases overhang the front edges by 11–20 world px (decoration only).
@@ -75,6 +74,7 @@ paintings. They stay hidden until their `_r0` arrives.
 - The **Marketplace** is painted at about half the village scale (a whole market square on 3×2
   tiles), and its plaza is squarer and flatter than 3×2, so its left corner sits about 15 world px
   low. A repaint with fewer, larger stalls would match the Tavern.
+- The Castle Keep's banners are painted and static (moving them needs a separate flag layer).
 - The Ancient Temple's stairs face front-right at r0 (kept as painted for the top-left light).
 - The Tavern's door faces front-right at r0 (kept as painted for the top-left light), and its
   base is a little flatter than 2:1.

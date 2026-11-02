@@ -193,3 +193,20 @@ describe('the test island', () => {
     expect(BUILDINGS.temple.requires).toEqual(['alchemist']);
   });
 });
+
+describe('placing one-per-realm buildings', () => {
+  it('selects the new building instead of offering a second when the realm limit is reached', () => {
+    const st = memory();
+    const test = openRealm({ enabled: true, unlockAll: true }, opts(st));
+    test.grantResources(TEST_GRANT);
+    test.startPlacing('castle');
+    test.confirm();
+    expect(test.state.buildings.map((b) => b.type)).toEqual(['castle']);
+    expect(test.mode.kind).toBe('selected');
+    // repeatable buildings still offer quick repeat placement
+    test.cancel();
+    test.startPlacing('cottage');
+    test.confirm();
+    expect(test.mode.kind).toBe('placing');
+  });
+});

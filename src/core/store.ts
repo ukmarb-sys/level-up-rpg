@@ -234,8 +234,10 @@ export class GameStore {
       const res = placeBuilding(state, mode.type, mode.pos, mode.rotation, this.now(), this.rules);
       if (!res.ok) return this.failed(res.reason);
       const building = res.state.buildings[res.state.buildings.length - 1];
-      // Stay in placing mode for quick repeated building when still affordable.
-      const affordable = canAfford(res.state.resources, BUILDINGS[mode.type].cost);
+      // Stay in placing mode for quick repeated building when another is still allowed and
+      // affordable (not after a one-per-realm building such as the Tavern, Temple or Castle Keep).
+      const affordable =
+        canAfford(res.state.resources, BUILDINGS[mode.type].cost) && availability(mode.type, res.state.buildings, this.rules).ok;
       const again = affordable
         ? findNearestFree(mode.type, mode.rotation, mode.pos, res.state.buildings, res.state.mapSize)
         : null;

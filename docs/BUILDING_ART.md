@@ -14,6 +14,7 @@ are in [`art-source/README.md`](../art-source/README.md).
 | Sawmill | **2×1** | 448 × 448 | chimney smoke, 4 window/lantern glows, sawdust at the blade |
 | Mage tower | **2×2** | 576 × 1024 | soft halo and runes on the crystal, 5 window/lantern glows, sparkles on the ground crystals, door rune and spell book |
 | Blacksmith | **2×1** | 448 × 448 | chimney smoke; forge fire, coal bed, two lanterns and the gable window glow |
+| Castle Keep | **4×4** | 1088 × 1280 | warm flicker on eleven lit windows, both gate lanterns and both braziers; warm embers rise from the braziers; no smoke; banners painted (static) |
 | Ancient Temple | **3×3** | 832 × 768 | ice-blue breathing halo on the floating crystal, cyan glints and rising motes on the runes, statue orbs and altar, warm flicker on the braziers; no smoke |
 | Marketplace | **3×2** | 704 × 512 | ten warm lantern and window glows (eight lanterns, two hall windows); the hall's chimney is capped, so no smoke |
 | Tavern | **2×2** | 576 × 640 | both dormers, the big latticed window, the hanging lantern and two table lanterns glow; **animated chimney smoke** from the chimney mouth (the static painted plume was removed) |
@@ -28,6 +29,8 @@ are in [`art-source/README.md`](../art-source/README.md).
 ![The Marketplace on the island](screenshots/marketplace-close.jpg)
 
 ![The Ancient Temple on the island](screenshots/temple-close.jpg)
+
+![The Castle Keep on the island](screenshots/castle-close.jpg)
 
 ![The Tavern's animated chimney smoke](screenshots/tavern-smoke.gif)
 
@@ -106,12 +109,18 @@ procedural building geometry is gone.
   sparkles (`SPARKLE_PALETTES`). The mage tower keeps its violet.
 
   ![The temple's crystal, runes and braziers](screenshots/temple-effects.gif)
+- **Castle Keep.** Delivered with real transparency, the gate facing front-left (r0) and a
+  plinth that fills the 4×4 diamond, so it imports without cut-out work or mirroring. The banners
+  and pennants are painted into the sprite and stay static: moving them cleanly needs the flags
+  as a separate layer (an animated copy over the painted flags would ghost at the edges).
+
+  ![The complete first island](screenshots/castle-village.jpg)
 - **Similar houses.** The farmhouse and the cottage share a red-roof, stone-and-timber style,
   so they're easy to mix up at a glance. The farm's field and fence tell them apart.
 
 ## Missing rotation artwork
 
-Only **r0** exists for the farm, sawmill, mage tower, blacksmith, alchemist, tavern, marketplace and temple. The other rotations are
+Only **r0** exists for the farm, sawmill, mage tower, blacksmith, alchemist, tavern, marketplace, temple and castle. The other rotations are
 **temporary fallbacks**, reported by `validate:assets`:
 
 | Building | r1 | r2 | r3 |
@@ -124,6 +133,7 @@ Only **r0** exists for the farm, sawmill, mage tower, blacksmith, alchemist, tav
 | Tavern (2×2) | r0 mirrored (door front-left) | r0 | r0 mirrored (door front-left) |
 | Marketplace (3×2 / 2×3) | r0 mirrored | r0 | r0 mirrored |
 | Ancient Temple (3×3) | r0 mirrored (stairs front-left) | r0 | r0 mirrored (stairs front-left) |
+| Castle Keep (4×4) | r0 mirrored | r0 | r0 mirrored |
 
 Mirroring swaps the footprint's width and depth, which matches the quarter turn, so collision
 lines up. But the lighting flips, and r2 shows the same front as r0 instead of the back. Painted

@@ -92,3 +92,14 @@ describe('temple magic colours', () => {
     expect(Object.keys(ORB_TINTS)).toEqual(['temple']);
   });
 });
+
+describe('castle embers', () => {
+  it('gives the castle braziers warm firelight and embers', () => {
+    const p = sparklePalette('castle');
+    for (const c of [p.glow, ...p.motes]) {
+      const [r, g, b] = rgb(c);
+      expect(r, c.toString(16)).toBeGreaterThan(b);
+      expect(g, c.toString(16)).toBeGreaterThan(b);
+    }
+  });
+});
